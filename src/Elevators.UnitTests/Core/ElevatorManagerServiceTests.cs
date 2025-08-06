@@ -1,12 +1,13 @@
-﻿using Moq;
-using Microsoft.Extensions.Configuration;
-using Microsoft.FeatureManagement;
+﻿using Elevators.Core.Constants;
 using Elevators.Core.Interfaces;
-using Elevators.Core.Services;
-using Elevators.Core.Models.Enums;
-using Elevators.Core.Constants;
-using Xunit;
 using Elevators.Core.Models;
+using Elevators.Core.Models.Enums;
+using Elevators.Core.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
+using Microsoft.FeatureManagement;
+using Moq;
+using Xunit;
 
 namespace Elevators.Tests.Core
 {
@@ -17,6 +18,7 @@ namespace Elevators.Tests.Core
         private readonly Mock<Serilog.ILogger> _loggerMock;
         private readonly ElevatorManagerService _service;
         private readonly IConfiguration _configuration;
+        private readonly IOptions<ElevatorSettings> _elevatorSettings;
         public ElevatorManagerServiceTests()
         {
             _featureManagerMock = new Mock<IFeatureManager>();
@@ -27,7 +29,8 @@ namespace Elevators.Tests.Core
             {"ElevatorOperatingRules:ServiceElevatorOperatingHours:Start", "08:00"},
             {"ElevatorOperatingRules:ServiceElevatorOperatingHours:End", "18:00"},
             {"ElevatorOperatingRules:UpDirectionOperatingHours:Start", "08:00"},
-            {"ElevatorOperatingRules:UpDirectionOperatingHours:End", "12:00"}
+            {"ElevatorOperatingRules:UpDirectionOperatingHours:End", "12:00"},
+
         };
             _configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(inMemorySettings)
@@ -37,18 +40,7 @@ namespace Elevators.Tests.Core
                 _featureManagerMock.Object,
                 _hardwareServiceMock.Object,
                 _configuration,
-                _loggerMock.Object,
-                numberOfPublicElevators: 1,
-                numberOfPrivateElevators: 1,
-                numberOfServiceElevators: 0, // Simplified for this test
-                maxFloors: 10,
-                elevatorCapacity: 5,
-                publicElevatorHasMusic: false,
-                publicElevatorHasSpeaker: false,
-                privateElevatorHasMusic: false,
-                privateElevatorHasSpeaker: false,
-                serviceElevatorHasMusic: false,
-                serviceElevatorHasSpeaker: false
+                _loggerMock.Object
             );
 
             // Common mock setup for hardware
@@ -104,7 +96,7 @@ namespace Elevators.Tests.Core
 
             // Act
             publicElevator.CurrentFloor = 5; // Simulate movement to the destination
-            await _service.ProcessElevatorLogic();
+            await _service.ProcessElevatorCommands();
 
             // Assert
             Assert.Empty(publicElevator.Passengers);
@@ -121,7 +113,7 @@ namespace Elevators.Tests.Core
 
             // Act
             _service.SetFireAlarm(true);
-            await _service.ProcessElevatorLogic();
+            await _service.ProcessElevatorCommands();
 
             // Assert
             Assert.True(_service.FireAlarmActive);

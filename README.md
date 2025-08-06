@@ -76,6 +76,183 @@ Explanation of Settings:
 
 `ServiceElevatorHasSpeaker`: true if service elevators have a speaker, false otherwise.
 
+🌐 API Endpoints
+
+The system exposes the following endpoints to monitor and control the elevators. For an interactive experience, see the Swagger Documentation section below.
+
+### Get Elevator Status
+Retrieves the current status of all elevators, including their type, current floor, and whether they are in service.
+Method: GET
+Endpoint: /api/v1/elevator/status
+Response (200 OK):
+```json
+{
+"elevators": [
+    {
+      "id": 1,
+      "type": 0,
+      "currentFloor": 0,
+      "state": 0,
+      "currentDirection": 0,
+      "passengers": [],
+      "summonRequests": []
+    },
+    {
+      "id": 2,
+      "type": 0,
+      "currentFloor": 0,
+      "state": 0,
+      "currentDirection": 0,
+      "passengers": [],
+      "summonRequests": []
+    },
+    {
+      "id": 3,
+      "type": 1,
+      "currentFloor": 0,
+      "state": 0,
+      "currentDirection": 0,
+      "passengers": [],
+      "summonRequests": []
+    },
+    {
+      "id": 4,
+      "type": 2,
+      "currentFloor": 0,
+      "state": 0,
+      "currentDirection": 0,
+      "passengers": [],
+      "summonRequests": []
+    }
+  ],
+  "floors": [
+    {
+      "floorNumber": 0,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 1,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 2,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 3,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 4,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 5,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 6,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 7,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 8,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 9,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    },
+    {
+      "floorNumber": 10,
+      "passengers": [],
+      "upCall": false,
+      "downCall": false
+    }
+  ],
+  "fireAlarmActive": false
+}
+```
+### Summon General Elevator
+Retrieves detailed information about a specific elevator by its ID, including its type, current floor, capacity, and amenities.
+Method: POST
+Endpoint: /api/v1/elevator/request/general
+Request Body:
+
+```json
+{
+  "currentFloor": 1,
+  "destinationFloor": 9
+}
+```
+
+Response (200): An empty body indicating the request has been accepted and is being processed.
+
+### Summon Private Elevator
+Retrieves detailed information about a specific elevator by its ID, including its type, current floor, capacity, and amenities.
+Method: POST
+Endpoint: /api/v1/elevator/request/private/1
+Request Body:
+
+```json
+{
+  "currentFloor": 1,
+  "destinationFloor": 9
+}
+```
+Response (200): An empty body indicating the request has been accepted and is being processed.
+
+### Summon Service Elevator
+Retrieves detailed information about a specific elevator by its ID, including its type, current floor, capacity, and amenities.
+Method: POST
+Endpoint: /api/v1/elevator/request/service
+Request Body:
+
+```json
+{
+  "currentFloor": 0,
+  "destinationFloor": 0,
+  "hasSwappedCard": true
+}
+```
+Response (200): An empty body indicating the request has been accepted and is being processed.
+
+📖 API Documentation (Swagger)
+
+This project uses Swagger (OpenAPI) to generate interactive API documentation. 
+
+You can use this interface to view detailed information about each endpoint and test them directly from your browser.
+
+Once the application is running, you can access:
+
+Swagger UI: `http://localhost:<port>/swagger`
+
+Swagger JSON: `http://localhost:<port>/swagger/v1/swagger.json`
+
+Replace `<port>` with the port number your application is running on (e.g., 5001 or 7280).
 
 🚀 Getting Started
 

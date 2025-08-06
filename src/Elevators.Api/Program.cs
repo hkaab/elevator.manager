@@ -1,13 +1,12 @@
+using Elevators.Api.Middleware;
 using Elevators.Api.Services;
 using Elevators.Core.Interfaces;
 using Elevators.Core.Models;
 using Elevators.Core.Services;
 using Elevators.Core.Services.Mocks;
-using Microsoft.Extensions.Options;
 using Microsoft.FeatureManagement;
 using Microsoft.OpenApi.Models;
 using Serilog;
-using Swashbuckle.AspNetCore.SwaggerGen;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,8 +28,13 @@ builder.Host.UseSerilog(Log.Logger);
 
 // Add services to the container.
 builder.Services.AddControllers();
+
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Elevator Manager Api", Version = "v1" });
+});
 
 // Add Feature Management
 builder.Services.AddFeatureManagement(builder.Configuration.GetSection("FeatureFlags"));
@@ -48,13 +52,14 @@ builder.Services.AddSingleton<IElevatorManagerService>(provider =>
         provider.GetRequiredService<IFeatureManager>(),
         provider.GetRequiredService<IHardwareIntegrationService>(),
         provider.GetRequiredService<IConfiguration>(),
-        provider.GetRequiredService<Serilog.ILogger>(),
-        provider.GetRequiredService<IOptions<ElevatorSettings>>()));
+        provider.GetRequiredService<Serilog.ILogger>()));
 
 // Register the hosted background service to run the elevator logic loop.
 builder.Services.AddHostedService<BackgroundElevatorService>();
 
 var app = builder.Build();
+
+app.UseMiddleware<HealthCheckMiddleware>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -65,8 +70,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// The exception handler middleware we discussed
 app.UseExceptionHandler("/error");
+
+app.UseMiddleware<ErrorHandlingMiddleware>();
 
 app.UseAuthorization();
 

@@ -4,11 +4,12 @@ using Microsoft.FeatureManagement;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Net.Mime;
 using Elevators.Core.Extensions;
+using Elevators.Core.Constants;
 
 namespace Elevators.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route(Endpoints.Info)]
     public class InfoController : Controller
     {
         private readonly IFeatureManager _featureManager;

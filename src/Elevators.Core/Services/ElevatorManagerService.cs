@@ -21,7 +21,7 @@ namespace Elevators.Core.Services
         private readonly IHardwareIntegrationService _hardwareIntegrationService;
         private readonly IConfiguration _configuration;
         private readonly ILogger _logger;
-        private readonly ElevatorSettings _elevatorSettings;
+        private ElevatorSettings _elevatorSettings;
         private TimeSpan _serviceElevatorStartTime;
         private  TimeSpan _serviceElevatorEndTime;
         private  TimeSpan _upDirectionStartTime;
@@ -31,23 +31,45 @@ namespace Elevators.Core.Services
             IFeatureManager featureManager,
             IHardwareIntegrationService hardwareIntegrationService,
             IConfiguration configuration,
-            ILogger logger,
-            IOptions<ElevatorSettings> elevatorSettingsOptions
+            ILogger logger
         )
         {
             _featureManager = featureManager;
             _hardwareIntegrationService = hardwareIntegrationService;
             _configuration = configuration;
             _logger = logger;
-            _elevatorSettings = elevatorSettingsOptions.Value;
+
+            InitializeElevatorSettings(configuration);
 
             Elevators = [];
             Floors = [];
+
             InitializeOperatingHours();
-            InitalizeElevators();
+            InitializeElevators();
             InitializeFloors();
 
             FireAlarmActive = false;
+        }
+
+        // Initializes the elevator settings from the configuration.
+        private void InitializeElevatorSettings(IConfiguration configuration)
+
+        {
+            var elevatorSettings = configuration.GetSection("ElevatorSettings") as ElevatorSettings;
+            _elevatorSettings = elevatorSettings ??= new ElevatorSettings
+                {
+                    NumberOfPublicElevators = 2,
+                    NumberOfPrivateElevators = 1,
+                    NumberOfServiceElevators = 1,
+                    MaxFloors = 10,
+                    ElevatorCapacity = 5,
+                    PublicElevatorHasMusic = true,
+                    PublicElevatorHasSpeaker = true,
+                    PrivateElevatorHasMusic = true,
+                    PrivateElevatorHasSpeaker = true,
+                    ServiceElevatorHasMusic = false,
+                    ServiceElevatorHasSpeaker = false
+                };
         }
 
         // Initializes the floors based on the maximum number of floors specified in the elevator settings.
@@ -61,7 +83,7 @@ namespace Elevators.Core.Services
         }
 
         // Initializes the elevators based on the settings provided in the configuration.
-        private void InitalizeElevators()
+        private void InitializeElevators()
         {
             int elevatorIdCounter = 1;
             for (int i = 0; i < _elevatorSettings.NumberOfPublicElevators; i++)

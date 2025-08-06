@@ -1,4 +1,5 @@
-﻿using Elevators.Core.Interfaces;
+﻿using Elevators.Core.Constants;
+using Elevators.Core.Interfaces;
 using Elevators.Core.Models;
 using Microsoft.AspNetCore.Mvc;
 using System.Net.Mime;
@@ -6,7 +7,7 @@ using System.Net.Mime;
 namespace Elevators.api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route(Endpoints.Elevator)]
     public class ElevatorController : ControllerBase
     {
         private readonly IElevatorManagerService _elevatorService;
