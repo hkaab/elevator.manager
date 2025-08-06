@@ -19,9 +19,5 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
       working-directory: src
-    - name: App Settings Variable Substitution
-      uses: microsoft/variable-substitution@v1
-      with:
-        files: '**/appsettings.json'
     - name: Unit Test 
       run: dotnet test  src/Elevators.UnitTests/Elevators.UnitTests.csproj --no-build --no-restore
