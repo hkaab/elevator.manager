@@ -32,10 +32,10 @@ namespace Elevators.api.Controllers
                     Elevators = _elevatorService.Elevators.Select(e => new
                     {
                         e.Id,
-                        e.Type,
+                        type= e.Type.ToString(),
                         e.CurrentFloor,
-                        e.State,
-                        e.CurrentDirection,
+                        state= e.State.ToString(),
+                        direction= e.CurrentDirection.ToString(),
                         Passengers = e.Passengers.Select(p => p.ToString()),
                         e.SummonRequests
                     }),

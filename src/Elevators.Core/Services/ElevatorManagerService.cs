@@ -21,7 +21,7 @@ namespace Elevators.Core.Services
         private readonly IHardwareIntegrationService _hardwareIntegrationService;
         private readonly IConfiguration _configuration;
         private readonly ILogger _logger;
-        private ElevatorSettings _elevatorSettings;
+        private ElevatorSettings? _elevatorSettings;
         private TimeSpan _serviceElevatorStartTime;
         private  TimeSpan _serviceElevatorEndTime;
         private  TimeSpan _upDirectionStartTime;
@@ -76,6 +76,12 @@ namespace Elevators.Core.Services
         // This method creates a list of Floor objects, each representing a floor in the building.
         private void InitializeFloors()
         {
+            if (_elevatorSettings == null)
+            {
+                _logger.Error("Elevator settings are not initialized. Cannot create floors.");
+                return;
+            }
+
             for (int i = 0; i <= _elevatorSettings.MaxFloors; i++)
             {
                 Floors.Add(new Floor(i, _logger));
@@ -85,6 +91,11 @@ namespace Elevators.Core.Services
         // Initializes the elevators based on the settings provided in the configuration.
         private void InitializeElevators()
         {
+            if (_elevatorSettings == null)
+            {
+                _logger.Error("Elevator settings are not initialized. Cannot create elevators.");
+                return;
+            }   
             int elevatorIdCounter = 1;
             for (int i = 0; i < _elevatorSettings.NumberOfPublicElevators; i++)
             {

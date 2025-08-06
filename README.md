@@ -26,7 +26,7 @@ How to Run
 ```
 
 git clone <repo-url>
-cd <project-directory>
+cd <project-directory>/src/Elevators.Api
 
 ```
 2. Restore dependencies:
@@ -44,7 +44,6 @@ dotnet run
 
 ```
 The application should start, and you can observe its output or interact with it as designed.
-
 
 ---
 
@@ -136,41 +135,42 @@ Method: GET
 Endpoint: /api/v1/elevator/status
 Response (200 OK):
 ```json
+
 {
-"elevators": [
+  "elevators": [
     {
       "id": 1,
-      "type": 0,
+      "type": "Public",
       "currentFloor": 0,
-      "state": 0,
-      "currentDirection": 0,
+      "state": "Idle",
+      "direction": "None",
       "passengers": [],
       "summonRequests": []
     },
     {
       "id": 2,
-      "type": 0,
+      "type": "Public",
       "currentFloor": 0,
-      "state": 0,
-      "currentDirection": 0,
+      "state": "Idle",
+      "direction": "None",
       "passengers": [],
       "summonRequests": []
     },
     {
       "id": 3,
-      "type": 1,
+      "type": "Private",
       "currentFloor": 0,
-      "state": 0,
-      "currentDirection": 0,
+      "state": "Idle",
+      "direction": "None",
       "passengers": [],
       "summonRequests": []
     },
     {
       "id": 4,
-      "type": 2,
+      "type": "Service",
       "currentFloor": 0,
-      "state": 0,
-      "currentDirection": 0,
+      "state": "Idle",
+      "direction": "None",
       "passengers": [],
       "summonRequests": []
     }
@@ -245,6 +245,7 @@ Response (200 OK):
   ],
   "fireAlarmActive": false
 }
+
 ```
 ### Summon General Elevator
 Retrieves detailed information about a specific elevator by its ID, including its type, current floor, capacity, and amenities.
