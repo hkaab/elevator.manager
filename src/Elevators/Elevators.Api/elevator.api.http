@@ -1,0 +1,6 @@
+@Elevators.api_HostAddress = http://localhost:5041
+
+GET {{Elevators.api_HostAddress}}/elevator/status
+Accept: application/json
+
+###
