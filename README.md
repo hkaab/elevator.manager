@@ -14,6 +14,40 @@ The system is designed with configurability in mind, allowing easy adjustments t
 - **API Versioning**: Supports versioning for future enhancements and backward compatibility.
 - **Floor Management**: Defines the maximum number of floors the elevators can service.
 
+🚀 Getting Started
+
+Prerequisites
+.NET SDK (version 8.0)
+
+How to Run
+
+1. Clone the repository (if applicable, otherwise navigate to the project directory):
+
+```
+
+git clone <repo-url>
+cd <project-directory>
+
+```
+2. Restore dependencies:
+```
+
+dotnet restore
+
+```
+
+3. Run the application:
+
+```
+
+dotnet run
+
+```
+The application should start, and you can observe its output or interact with it as designed.
+
+
+---
+
 ⚙️ Configuration
 
 The elevator system's configuration is managed through an `appsettings.json` file, which allows for easy customization of the system's parameters without needing to modify the codebase directly.
@@ -75,6 +109,22 @@ Explanation of Settings:
 `ServiceElevatorHasMusic`: true if service elevators play music, false otherwise.
 
 `ServiceElevatorHasSpeaker`: true if service elevators have a speaker, false otherwise.
+
+🔄 Background Service
+
+In an elevator system, a background service (e.g., an IHostedService in .NET) is crucial for managing continuous, long-running operations that don't directly respond to a single HTTP request. Its purpose includes:
+
+Elevator Dispatching Logic: Continuously monitoring call requests (from floors or inside elevators) and dispatching the most suitable elevator to fulfill the request.
+
+* **State Management**: Updating and persisting the current state of each elevator (current floor, direction, passengers) in real-time.
+
+* **Simulation**: Running the elevator movement simulation, including acceleration, deceleration, and door operations, independently of user interactions.
+
+* **Logging and Monitoring**: Recording elevator events, performance metrics, and potential issues for analysis and maintenance.
+
+* **Inter-Elevator Communication**: Coordinating movements between multiple elevators to optimize traffic flow and prevent conflicts.
+
+By offloading these tasks to a background service, the main application (e.g., a Web API) remains responsive to immediate requests (like a user pressing a call button) while the complex, continuous logic runs reliably behind the scenes.
 
 🌐 API Endpoints
 
@@ -253,40 +303,6 @@ Swagger UI: `http://localhost:<port>/swagger`
 Swagger JSON: `http://localhost:<port>/swagger/v1/swagger.json`
 
 Replace `<port>` with the port number your application is running on (e.g., 5001 or 7280).
-
-🚀 Getting Started
-
-Prerequisites
-.NET SDK (version 8.0)
-
-How to Run
-
-1. Clone the repository (if applicable, otherwise navigate to the project directory):
-
-```
-
-git clone <repo-url>
-cd <project-directory>
-
-```
-2. Restore dependencies:
-```
-
-dotnet restore
-
-```
-
-3. Run the application:
-
-```
-
-dotnet run
-
-```
-The application should start, and you can observe its output or interact with it as designed.
-
-
----
 
 
 📄 License
