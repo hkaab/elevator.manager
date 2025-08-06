@@ -1,5 +1,8 @@
 🏢 Elevator System
 
+![workflow](https://github.com/hkaab/elevator.manager/actions/workflows/ci.yml/badge.svg)
+![workflow](https://github.com/hkaab/elevator.manager/actions/workflows/ut.yml/badge.svg)
+
 This project simulates a basic elevator system, demonstrating how to manage multiple types of elevators, their capacities, and various operational settings. 
 
 The system is designed with configurability in mind, allowing easy adjustments to its behavior without code changes.

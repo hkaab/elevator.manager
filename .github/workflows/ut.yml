@@ -1,0 +1,24 @@
+name: unit tests
+
+on:
+  workflow_run:
+    workflows: ["build"]
+    types:
+      - completed
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 9.0.x
+    - name: Restore dependencies
+      run: dotnet restore
+      working-directory: src
+    - name: Unit Test 
+      run: dotnet test  Elevators.UnitTests.csproj
+      working-directory: Elevators.UnitTests
