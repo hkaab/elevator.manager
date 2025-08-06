@@ -13,7 +13,6 @@ namespace Elevators.Core.Services
     {
         public List<IElevator> Elevators { get; private set; }
         public List<IFloor> Floors { get; private set; }
-        public int MaxFloors { get; private set; }
         public bool FireAlarmActive { get; private set; }
         private int _passengerIdCounter = 0;
 
@@ -216,7 +215,7 @@ namespace Elevators.Core.Services
         // If no elevator is available, it logs a warning.
         public async Task AddGeneralPassengerRequest(int currentFloor, int destinationFloor)
         {
-            if (currentFloor < 0 || currentFloor > MaxFloors || destinationFloor < 0 || destinationFloor > MaxFloors)
+            if (currentFloor < 0 || currentFloor > _elevatorSettings.MaxFloors || destinationFloor < 0 || destinationFloor > _elevatorSettings.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
@@ -245,9 +244,9 @@ namespace Elevators.Core.Services
 
             if (bestElevator != null)
             {
-                if (!bestElevator.SummonRequests.Contains(currentFloor))
+                if (!bestElevator.SummonRequests.Contains(destinationFloor))
                 {
-                    bestElevator.SummonRequests.Add(currentFloor);
+                    bestElevator.SummonRequests.Add(destinationFloor);
                     bestElevator.SummonRequests.Sort();
                 }
                 _logger.Information("System: Summon request for Passenger {PassengerId} assigned to Elevator {ElevatorId} ({ElevatorType}).", passenger.Id, bestElevator.Id, bestElevator.Type);
@@ -270,7 +269,7 @@ namespace Elevators.Core.Services
         // Adds a private elevator request for a specific private elevator.
         public async Task AddPrivateElevatorRequest(int elevatorId, int currentFloor, int destinationFloor)
         {
-            if (currentFloor < 0 || currentFloor > MaxFloors || destinationFloor < 0 || destinationFloor > MaxFloors)
+            if (currentFloor < 0 || currentFloor > _elevatorSettings.MaxFloors || destinationFloor < 0 || destinationFloor > _elevatorSettings.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
@@ -301,9 +300,9 @@ namespace Elevators.Core.Services
             _logger.Information("System: New summon request at Floor {CurrentFloor} going to {DestinationFloor} from Passenger {PassengerId}.", currentFloor, destinationFloor, passenger.Id);
 
 
-            if (!elevator.SummonRequests.Contains(currentFloor))
+            if (!elevator.SummonRequests.Contains(destinationFloor))
             {
-                elevator.SummonRequests.Add(currentFloor);
+                elevator.SummonRequests.Add(destinationFloor);
                 elevator.SummonRequests.Sort();
             }
 
@@ -321,7 +320,7 @@ namespace Elevators.Core.Services
         // Adds a service elevator request for staff members.
         public async Task AddServiceElevatorRequest(int currentFloor, int destinationFloor, bool hasSwappedCard)
         {
-            if (currentFloor < 0 || currentFloor > MaxFloors || destinationFloor < 0 || destinationFloor > MaxFloors)
+            if (currentFloor < 0 || currentFloor > _elevatorSettings.MaxFloors || destinationFloor < 0 || destinationFloor > _elevatorSettings.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
@@ -375,9 +374,9 @@ namespace Elevators.Core.Services
 
             if (bestElevator != null)
             {
-                if (!bestElevator.SummonRequests.Contains(currentFloor))
+                if (!bestElevator.SummonRequests.Contains(destinationFloor))
                 {
-                    bestElevator.SummonRequests.Add(currentFloor);
+                    bestElevator.SummonRequests.Add(destinationFloor);
                     bestElevator.SummonRequests.Sort();
                 }
                 _logger.Information("System: Summon request for Staff Passenger {PassengerId} assigned to Service Elevator {ElevatorId}.", passenger.Id, bestElevator.Id);
@@ -447,7 +446,7 @@ namespace Elevators.Core.Services
 
                 if (elevator.Passengers.Count != 0 || elevator.SummonRequests.Count != 0)
                 {
-                    int nextInternalDestination = elevator.GetNextDestination(MaxFloors);
+                    int nextInternalDestination = elevator.GetNextDestination(_elevatorSettings.MaxFloors);
 
                     // Directional time restriction logic
                     if (await _featureManager.IsEnabledAsync(FeatureNames.DirectionalTimeRestriction) && elevator.Type == ElevatorType.Service)

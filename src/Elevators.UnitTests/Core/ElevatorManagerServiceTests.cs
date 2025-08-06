@@ -61,8 +61,9 @@ namespace Elevators.Tests.Core
             await _service.AddGeneralPassengerRequest(8, 2);
 
             // Assert
-            Assert.Contains(8, publicElevator.SummonRequests);
-            Assert.Single(_service.Floors[7].Passengers);
+            Assert.Contains(2, publicElevator.SummonRequests);
+            Assert.Single(_service.Floors[8].Passengers);
+            Assert.True(_service.Floors[8].DownCall);
         }
 
         [Fact]
@@ -77,9 +78,8 @@ namespace Elevators.Tests.Core
             await _service.AddGeneralPassengerRequest(3, 7);
 
             // Assert
-            Assert.Contains(3, publicElevator.SummonRequests);
             Assert.Contains(7, publicElevator.SummonRequests);
-            Assert.True(_service.Floors[2].UpCall);
+            Assert.True(_service.Floors[3].UpCall);
         }
 
         [Fact]
@@ -95,7 +95,7 @@ namespace Elevators.Tests.Core
             publicElevator.SummonRequests.Add(5);
 
             // Act
-            publicElevator.CurrentFloor = 5; // Simulate movement to the destination
+            publicElevator.CurrentFloor = 5; 
             await _service.ProcessElevatorCommands();
 
             // Assert
