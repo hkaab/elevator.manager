@@ -47,7 +47,7 @@ appsettings.json Example:
   }
 }
 
-----
+---
 
 Explanation of Settings:
 `NumberOfPublicElevators`: The total count of public-access elevators.
