@@ -134,9 +134,13 @@ The system exposes the following endpoints to monitor and control the elevators.
 
 ### Get Elevator Status
 Retrieves the current status of all elevators, including their type, current floor, and whether they are in service.
+
 Method: GET
+
 Endpoint: /api/v1/elevator/status
+
 Response (200 OK):
+
 ```json
 
 {
@@ -251,9 +255,11 @@ Response (200 OK):
 
 ```
 ### Summon General Elevator
-Retrieves detailed information about a specific elevator by its ID, including its type, current floor, capacity, and amenities.
+
 Method: POST
+
 Endpoint: /api/v1/elevator/request/general
+
 Request Body:
 
 ```json
@@ -263,12 +269,14 @@ Request Body:
 }
 ```
 
-Response (200): An empty body indicating the request has been accepted and is being processed.
+Response (Accepted 201): An empty body indicating the request has been accepted and is being processed.
 
 ### Summon Private Elevator
-Retrieves detailed information about a specific elevator by its ID, including its type, current floor, capacity, and amenities.
+
 Method: POST
+
 Endpoint: /api/v1/elevator/request/private/1
+
 Request Body:
 
 ```json
@@ -277,12 +285,14 @@ Request Body:
   "destinationFloor": 9
 }
 ```
-Response (200): An empty body indicating the request has been accepted and is being processed.
+Response (201 Accepted): An empty body indicating the request has been accepted and is being processed.
 
 ### Summon Service Elevator
-Retrieves detailed information about a specific elevator by its ID, including its type, current floor, capacity, and amenities.
+
 Method: POST
+
 Endpoint: /api/v1/elevator/request/service
+
 Request Body:
 
 ```json
@@ -292,7 +302,7 @@ Request Body:
   "hasSwappedCard": true
 }
 ```
-Response (200): An empty body indicating the request has been accepted and is being processed.
+Response (201 Accepted): An empty body indicating the request has been accepted and is being processed.
 
 📖 API Documentation (Swagger)
 
