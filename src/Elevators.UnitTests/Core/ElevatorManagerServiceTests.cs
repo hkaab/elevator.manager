@@ -109,6 +109,43 @@ namespace Elevators.Tests.Core
             Assert.Equal(ElevatorState.MovingDown, publicElevator.State);
         }
         [Fact]
+        public async Task PassengerSummonGeneralElevatorRequest_L2ToL6_L4ToG()
+        {
+            // Arrange
+            _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
+            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            publicElevator.CurrentFloor = 0;
+            publicElevator.State = ElevatorState.Idle;
+
+            ElevatorCommandRequest request1 = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 2,
+                ToFloor = 6
+            };
+
+            ElevatorCommandRequest request2 = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 4,
+                ToFloor = 0
+            };
+
+            // Act
+            await _service.QueueElevatorCommandRequest(request1);
+            await _service.QueueElevatorCommandRequest(request2);
+            await _service.ProcessElevatorCommands();
+            await _service.ProcessElevatorCommands();
+            await _service.ProcessElevatorCommands();
+            await _service.ProcessElevatorCommands();
+
+            // Assert
+            Assert.Equal(Direction.Down, publicElevator.CurrentDirection);
+            Assert.Equal(0, publicElevator.CurrentFloor);
+            Assert.Equal(ElevatorState.MovingDown, publicElevator.State);
+        }
+
+        [Fact]
         public async Task AddSummonGeneralElevatorRequest_AssignsRequestToClosestElevator()
         {
             // Arrange
@@ -185,7 +222,7 @@ namespace Elevators.Tests.Core
             var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
             publicElevator.CurrentFloor = 7;
 
-            ElevatorCommandRequest request = new ElevatorCommandRequest
+            ElevatorCommandRequest request = new()
             {
                 ElevatorCommand = ElevatorCommand.FireAlarm,
                 FireAlarmActive = true,

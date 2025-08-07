@@ -24,9 +24,9 @@ namespace Elevators.Core.Services
         private readonly ILogger _logger;
         private ElevatorSettings? _elevatorSettings;
         private TimeSpan _serviceElevatorStartTime;
-        private  TimeSpan _serviceElevatorEndTime;
-        private  TimeSpan _upDirectionStartTime;
-        private  TimeSpan _upDirectionEndTime;
+        private TimeSpan _serviceElevatorEndTime;
+        private TimeSpan _upDirectionStartTime;
+        private TimeSpan _upDirectionEndTime;
 
         public ElevatorManagerService(
             IFeatureManager featureManager,
@@ -167,6 +167,13 @@ namespace Elevators.Core.Services
                     case ElevatorCommand.SummonServiceElevator:
                         await AddServiceElevatorRequest(request.FromFloor.Value, request.ToFloor.Value, request.HasSwappedCard);
                         break;
+                    case ElevatorCommand.CancelFloorRequest:
+                         AddCancelFloorRequest(request.ElevatorId,request.ToFloor.Value);
+                        break;
+                    case ElevatorCommand.CreateFloorRequest:
+                         AddCreateFloorRequest(request.ElevatorId, request.ToFloor.Value);
+                        break;
+
                     default:
                         _logger.Error($"Unknown command type: {request.ElevatorCommand}");
                         break;
@@ -175,6 +182,33 @@ namespace Elevators.Core.Services
                 _logger.Information($"Dequeued Command request: {request}");
             }
         }
+
+        // Adds a request to create a floor request for a specific elevator.
+        // This method checks if the elevator exists and if the floor number is valid.
+        // If valid, it creates a new passenger and adds it to the elevator's passenger list.
+        private void AddCreateFloorRequest(int elevatorId, int floorNumber)
+        {
+            var elevator = Elevators.FirstOrDefault(e => e.Id == elevatorId);
+            if (elevator == null)
+            {
+                _logger.Error("Elevator with ID {ElevatorId} not found.", elevatorId);
+                return;
+            }
+            if (floorNumber < 0 || floorNumber > _elevatorSettings.MaxFloors)
+            {
+                _logger.Error("Invalid floor number {FloorNumber} for elevator request.", floorNumber);
+                return;
+            }
+            Passenger passenger = new(_passengerIdCounter++, elevator.CurrentFloor, floorNumber);
+            elevator.AddPassenger(passenger);
+        }
+
+        // Adds a request to cancel a floor request for a specific elevator.
+        private void AddCancelFloorRequest(int elevatorId, int value)
+        {
+            throw new NotImplementedException();
+        }
+
 
         // Sets the fire alarm state and handles the elevator behavior during a fire alarm.
         // If the fire alarm is activated, all elevators will go to the ground floor (Floor 1).
@@ -489,9 +523,9 @@ namespace Elevators.Core.Services
                 }
 
                 //Check if the elevator is currently at a floor with requests
-                IFloor FromFloor = Floors[elevator.CurrentFloor];
+                IFloor currentFloor = Floors[elevator.CurrentFloor];
 
-                bool needsToStop = elevator.ShouldStop(FromFloor);
+                bool needsToStop = elevator.ShouldStop(currentFloor);
 
                 if (needsToStop)
                     await ApplyStopMusicRule(elevator);
@@ -500,7 +534,7 @@ namespace Elevators.Core.Services
                 await ApplyExitPassengersRules(elevator);
 
                 // Apply enter passengers rules
-                await ApplyEnterPassengersRules(elevator, FromFloor);
+                await ApplyEnterPassengersRules(elevator, currentFloor);
 
 
                 if (elevator.Passengers.Count != 0 || elevator.SummonRequests.Count != 0)
