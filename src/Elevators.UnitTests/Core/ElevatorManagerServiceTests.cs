@@ -146,6 +146,52 @@ namespace Elevators.Tests.Core
         }
 
         [Fact]
+        public async Task PassengerSummonGeneralElevatorRequest_L0ToL5_L4ToG_L10ToG()
+        {
+            // Arrange
+            _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
+            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            publicElevator.CurrentFloor = 0;
+            publicElevator.State = ElevatorState.Idle;
+
+            ElevatorCommandRequest request1 = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 0,
+                ToFloor = 5
+            };
+
+            ElevatorCommandRequest request2 = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 4,
+                ToFloor = 0
+            };
+
+            ElevatorCommandRequest request3 = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 10,
+                ToFloor = 0
+            };
+
+            // Act
+            await _service.QueueElevatorCommandRequest(request1);
+            await _service.QueueElevatorCommandRequest(request2);
+            await _service.QueueElevatorCommandRequest(request3);
+
+            await _service.ProcessElevatorCommands();
+            await _service.ProcessElevatorCommands();
+            await _service.ProcessElevatorCommands();
+            await _service.ProcessElevatorCommands();
+
+            // Assert
+            Assert.Equal(Direction.Down, publicElevator.CurrentDirection);
+            Assert.Equal(0, publicElevator.CurrentFloor);
+            Assert.Equal(ElevatorState.MovingDown, publicElevator.State);
+        }
+
+        [Fact]
         public async Task AddSummonGeneralElevatorRequest_AssignsRequestToClosestElevator()
         {
             // Arrange

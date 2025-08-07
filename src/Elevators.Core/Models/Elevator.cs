@@ -89,11 +89,14 @@ namespace Elevators.Core.Models
                         return nextStop;
                     }
 
-                    if ((nextUp >= 0 && nextUp < nextStop && nextUp> CurrentFloor) || nextUp > CurrentFloor)
+                    if ((nextUp >= 0 && nextUp < nextStop && nextUp> CurrentFloor) || (nextUp > CurrentFloor && nextStop > nextUp))
                         return nextUp;
 
                     if (nextStop > CurrentFloor)
                         return nextStop;
+
+                    if (nextUp > CurrentFloor)
+                        return nextUp;
 
                     var nextDown = SummonRequests.Where(f => f < CurrentFloor).OrderByDescending(f => f).FirstOrDefault();
                     if ((nextDown != 0 && nextStop < nextDown) || nextDown < CurrentFloor)
