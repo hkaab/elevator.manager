@@ -41,13 +41,13 @@ namespace Elevators.Core.Services.Mocks
             return true;
         }
 
-        public async Task<bool> MoveElevatorAsync(int elevatorId, int currentFloor, int targetFloor, Direction direction)
+        public async Task<bool> MoveElevatorAsync(int elevatorId, int FromFloor, int targetFloor, Direction direction)
         {
-            _logger.Information("[HW MOCK]: Elevator {ElevatorId}: Attempting to Move from {CurrentFloor} to {TargetFloor} ({Direction})...", elevatorId, currentFloor, targetFloor, direction);
+            _logger.Information("[HW MOCK]: Elevator {ElevatorId}: Attempting to Move from {FromFloor} to {TargetFloor} ({Direction})...", elevatorId, FromFloor, targetFloor, direction);
             await Task.Delay(1000);
             if (_random.NextDouble() < FailureChance)
             {
-                _logger.Error("[HW MOCK]: Elevator {ElevatorId}: Movement FAILED between {CurrentFloor} and {TargetFloor}!", elevatorId, currentFloor, targetFloor);
+                _logger.Error("[HW MOCK]: Elevator {ElevatorId}: Movement FAILED between {FromFloor} and {TargetFloor}!", elevatorId, FromFloor, targetFloor);
                 return false;
             }
             _logger.Information("[HW MOCK]: Elevator {ElevatorId}: Successfully moved to {TargetFloor}.", elevatorId, targetFloor);

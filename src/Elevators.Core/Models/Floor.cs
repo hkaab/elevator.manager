@@ -14,15 +14,15 @@ namespace Elevators.Core.Models
         public void AddPassenger(Passenger passenger)
         {
             Passengers.Add(passenger);
-            if (passenger.DestinationFloor > FloorNumber)
+            if (passenger.ToFloor > FloorNumber)
             {
                 UpCall = true;
             }
-            else if (passenger.DestinationFloor < FloorNumber)
+            else if (passenger.ToFloor < FloorNumber)
             {
                 DownCall = true;
             }
-            _logger.Information("Passenger {PassengerId} arrived at Floor {FloorNumber} and wants to go to {DestinationFloor}.", passenger.Id, FloorNumber, passenger.DestinationFloor);
+            _logger.Information("Passenger {PassengerId} arrived at Floor {FloorNumber} and wants to go to {ToFloor}.", passenger.Id, FloorNumber, passenger.ToFloor);
         }
 
         public void ClearCalls()

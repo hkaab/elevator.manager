@@ -3,17 +3,19 @@ using Elevators.Core.Interfaces;
 using Elevators.Core.Models;
 using Elevators.Core.Models.Enums;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
 using Microsoft.FeatureManagement;
 using Serilog;
+using System.Collections.Concurrent;
 
 namespace Elevators.Core.Services
 {
     public class ElevatorManagerService : IElevatorManagerService
     {
+        public ConcurrentQueue<ElevatorCommandRequest> ElevatorCommandsQueue { get; private set; }
         public List<IElevator> Elevators { get; private set; }
         public List<IFloor> Floors { get; private set; }
         public bool FireAlarmActive { get; private set; }
+
         private int _passengerIdCounter = 0;
 
         private readonly IFeatureManager _featureManager;
@@ -37,6 +39,8 @@ namespace Elevators.Core.Services
             _hardwareIntegrationService = hardwareIntegrationService;
             _configuration = configuration;
             _logger = logger;
+
+            ElevatorCommandsQueue = new ConcurrentQueue<ElevatorCommandRequest>();
 
             InitializeElevatorSettings(configuration);
 
@@ -124,10 +128,58 @@ namespace Elevators.Core.Services
             _upDirectionEndTime = TimeSpan.Parse(upDirectionHoursConfig["End"] ?? "12:00");
         }
 
+        // Adds a new elevator Command request to the queue.
+        public Task QueueElevatorCommandRequest(ElevatorCommandRequest elevatorCommandRequest)
+        {
+            ElevatorCommandsQueue.Enqueue(elevatorCommandRequest);
+            _logger.Information($"New Elevator Command request enqueued: {elevatorCommandRequest.ToString()}");
+            return Task.CompletedTask;
+        }
+
+
+        // Processes the elevator Command requests from the queue.
+        public async Task ProcessElevatorCommandRequests()
+        {
+            while (ElevatorCommandsQueue.TryDequeue(out var request))
+            {
+                if (request == null)
+                {
+                    _logger.Error("Received null ElevatorCommandRequest. Skipping processing.");
+                    continue;
+                }
+                switch (request.ElevatorCommand)
+                {
+                    case ElevatorCommand.FireAlarm:
+                        SetFireAlarm(request.FireAlarmActive);
+                        break;
+                    case ElevatorCommand.EmergencyCall:
+                        EmergencyCallAsync(request.ElevatorId).Wait();
+                        break;
+                    case ElevatorCommand.SetIssue:
+                        SetElevatorIssue(request.ElevatorId, request.HasIssue);
+                        break;
+                    case ElevatorCommand.SummonGeneralElevator:
+                        await AddGeneralElevatorRequest(request.FromFloor.Value, request.ToFloor.Value);
+                        break;
+                    case ElevatorCommand.SummonPrivateElevator:
+                        await AddPrivateElevatorRequest(request.ElevatorId, request.FromFloor.Value, request.ToFloor.Value);
+                        break;
+                    case ElevatorCommand.SummonServiceElevator:
+                        await AddServiceElevatorRequest(request.FromFloor.Value, request.ToFloor.Value, request.HasSwappedCard);
+                        break;
+                    default:
+                        _logger.Error($"Unknown command type: {request.ElevatorCommand}");
+                        break;
+                }
+
+                _logger.Information($"Dequeued Command request: {request}");
+            }
+        }
+
         // Sets the fire alarm state and handles the elevator behavior during a fire alarm.
         // If the fire alarm is activated, all elevators will go to the ground floor (Floor 1).
         // If deactivated, elevators will resume normal operation.
-        public void SetFireAlarm(bool active)
+        private void SetFireAlarm(bool active)
         {
             FireAlarmActive = active;
             if (active)
@@ -159,7 +211,7 @@ namespace Elevators.Core.Services
 
         // Activates an emergency call for a specific elevator.
         // This method checks if the elevator exists and then sends a command to the hardware integration service
-        public async Task EmergencyCallAsync(int elevatorId)
+        private async Task EmergencyCallAsync(int elevatorId)
         {
             var elevator = Elevators.FirstOrDefault(e => e.Id == elevatorId);
             if (elevator != null)
@@ -189,7 +241,7 @@ namespace Elevators.Core.Services
 
         // Sets an issue for a specific elevator.
         // This method updates the elevator's state and sends a command to the hardware integration service.
-        public void SetElevatorIssue(int elevatorId, bool hasIssue)
+        private void SetElevatorIssue(int elevatorId, bool hasIssue)
         {
             var elevator = Elevators.FirstOrDefault(e => e.Id == elevatorId);
             if (elevator != null)
@@ -213,63 +265,63 @@ namespace Elevators.Core.Services
         // Adds a general passenger request to the elevator system. 
         // This method checks if the requested floors are valid, creates a new passenger, and assigns the request to the best available elevator.
         // If no elevator is available, it logs a warning.
-        public async Task AddGeneralPassengerRequest(int currentFloor, int destinationFloor)
+        private async Task AddGeneralElevatorRequest(int FromFloor, int ToFloor)
         {
-            if (currentFloor < 0 || currentFloor > _elevatorSettings.MaxFloors || destinationFloor < 0 || destinationFloor > _elevatorSettings.MaxFloors)
+            if (FromFloor < 0 || FromFloor > _elevatorSettings.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
             }
 
             _passengerIdCounter++;
-            var passenger = new Passenger(_passengerIdCounter, currentFloor, destinationFloor);
-            Floors[currentFloor].AddPassenger(passenger);
-            _logger.Information("System: New summon request at Floor {CurrentFloor} going to {DestinationFloor} from Passenger {PassengerId}.", currentFloor, destinationFloor, passenger.Id);
+            var passenger = new Passenger(_passengerIdCounter, FromFloor, ToFloor);
+            Floors[FromFloor].AddPassenger(passenger);
+            _logger.Information("System: New summon request at Floor {FromFloor} going to {ToFloor} from Passenger {PassengerId}.", FromFloor, ToFloor, passenger.Id);
 
             IElevator? bestElevator = null;
 
             if (await _featureManager.IsEnabledAsync(FeatureNames.PublicElevators))
             {
                 bestElevator = Elevators.Where(e => e.Type == ElevatorType.Public && e.State != ElevatorState.OutOfService && e.State != ElevatorState.EmergencyStop && !e.IsFull())
-                                        .OrderBy(e => Math.Abs(e.CurrentFloor - currentFloor))
+                                        .OrderBy(e => Math.Abs(e.CurrentFloor - FromFloor))
                                         .FirstOrDefault();
             }
 
             if (bestElevator == null && await _featureManager.IsEnabledAsync(FeatureNames.PrivateElevators))
             {
                 bestElevator = Elevators.Where(e => e.Type == ElevatorType.Private && e.State != ElevatorState.OutOfService && e.State != ElevatorState.EmergencyStop && !e.IsFull())
-                                        .OrderBy(e => Math.Abs(e.CurrentFloor - currentFloor))
+                                        .OrderBy(e => Math.Abs(e.CurrentFloor - FromFloor))
                                         .FirstOrDefault();
             }
 
             if (bestElevator != null)
             {
-                if (!bestElevator.SummonRequests.Contains(destinationFloor))
+                if (!bestElevator.SummonRequests.Contains(FromFloor))
                 {
-                    bestElevator.SummonRequests.Add(destinationFloor);
+                    bestElevator.SummonRequests.Add(FromFloor);
                     bestElevator.SummonRequests.Sort();
                 }
                 _logger.Information("System: Summon request for Passenger {PassengerId} assigned to Elevator {ElevatorId} ({ElevatorType}).", passenger.Id, bestElevator.Id, bestElevator.Type);
             }
             else
             {
-                _logger.Warning("System: No available elevator to handle summon request for Passenger {PassengerId} at Floor {CurrentFloor}.", passenger.Id, currentFloor);
+                _logger.Warning("System: No available elevator to handle summon request for Passenger {PassengerId} at Floor {FromFloor}.", passenger.Id, FromFloor);
             }
 
-            if (destinationFloor > currentFloor)
+            if (ToFloor > FromFloor)
             {
-                Floors[currentFloor].UpCall = true;
+                Floors[FromFloor].UpCall = true;
             }
-            else if (destinationFloor < currentFloor)
+            else if (ToFloor < FromFloor)
             {
-                Floors[currentFloor].DownCall = true;
+                Floors[FromFloor].DownCall = true;
             }
         }
 
         // Adds a private elevator request for a specific private elevator.
-        public async Task AddPrivateElevatorRequest(int elevatorId, int currentFloor, int destinationFloor)
+        public async Task AddPrivateElevatorRequest(int elevatorId, int FromFloor, int ToFloor)
         {
-            if (currentFloor < 0 || currentFloor > _elevatorSettings.MaxFloors || destinationFloor < 0 || destinationFloor > _elevatorSettings.MaxFloors)
+            if (FromFloor < 0 || FromFloor > _elevatorSettings.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
@@ -295,32 +347,32 @@ namespace Elevators.Core.Services
             }
 
             _passengerIdCounter++;
-            var passenger = new Passenger(_passengerIdCounter, currentFloor, destinationFloor);
-            Floors[currentFloor].AddPassenger(passenger);
-            _logger.Information("System: New summon request at Floor {CurrentFloor} going to {DestinationFloor} from Passenger {PassengerId}.", currentFloor, destinationFloor, passenger.Id);
+            var passenger = new Passenger(_passengerIdCounter, FromFloor, ToFloor);
+            Floors[FromFloor].AddPassenger(passenger);
+            _logger.Information("System: New summon request at Floor {FromFloor} going to {ToFloor} from Passenger {PassengerId}.", FromFloor, ToFloor, passenger.Id);
 
 
-            if (!elevator.SummonRequests.Contains(destinationFloor))
+            if (!elevator.SummonRequests.Contains(FromFloor))
             {
-                elevator.SummonRequests.Add(destinationFloor);
+                elevator.SummonRequests.Add(FromFloor);
                 elevator.SummonRequests.Sort();
             }
 
-            if (destinationFloor > currentFloor)
+            if (ToFloor > FromFloor)
             {
-                Floors[currentFloor].UpCall = true;
+                Floors[FromFloor].UpCall = true;
             }
-            else if (destinationFloor < currentFloor)
+            else if (ToFloor < FromFloor)
             {
-                Floors[currentFloor].DownCall = true;
+                Floors[FromFloor].DownCall = true;
             }
             _logger.Information("System: Summon request for Passenger {PassengerId} specifically assigned to Private Elevator {ElevatorId}.", passenger.Id, elevatorId);
         }
 
         // Adds a service elevator request for staff members.
-        public async Task AddServiceElevatorRequest(int currentFloor, int destinationFloor, bool hasSwappedCard)
+        private async Task AddServiceElevatorRequest(int FromFloor, int ToFloor, bool hasSwappedCard)
         {
-            if (currentFloor < 0 || currentFloor > _elevatorSettings.MaxFloors || destinationFloor < 0 || destinationFloor > _elevatorSettings.MaxFloors)
+            if (FromFloor < 0 || FromFloor > _elevatorSettings.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
@@ -351,7 +403,7 @@ namespace Elevators.Core.Services
                 // Check for directional time restriction
                 if (await _featureManager.IsEnabledAsync(FeatureNames.DirectionalTimeRestriction))
                 {
-                    if (destinationFloor > currentFloor) // Is an UP request
+                    if (ToFloor > FromFloor) // Is an UP request
                     {
                         if (now < _upDirectionStartTime || now > _upDirectionEndTime)
                         {
@@ -363,44 +415,51 @@ namespace Elevators.Core.Services
             }
 
             _passengerIdCounter++;
-            var passenger = new Passenger(_passengerIdCounter, currentFloor, destinationFloor, hasSwappedCard);
-            Floors[currentFloor].AddPassenger(passenger);
-            _logger.Information("System: New summon request at Floor {CurrentFloor} going to {DestinationFloor} from Staff Passenger {PassengerId}.", currentFloor, destinationFloor, passenger.Id);
+            var passenger = new Passenger(_passengerIdCounter, FromFloor, ToFloor, hasSwappedCard);
+            Floors[FromFloor].AddPassenger(passenger);
+            _logger.Information("System: New summon request at Floor {FromFloor} going to {ToFloor} from Staff Passenger {PassengerId}.", FromFloor, ToFloor, passenger.Id);
 
 
             var bestElevator = Elevators.Where(e => e.Type == ElevatorType.Service && e.State != ElevatorState.OutOfService && e.State != ElevatorState.EmergencyStop && !e.IsFull())
-                                        .OrderBy(e => Math.Abs(e.CurrentFloor - currentFloor))
+                                        .OrderBy(e => Math.Abs(e.CurrentFloor - FromFloor))
                                         .FirstOrDefault();
 
             if (bestElevator != null)
             {
-                if (!bestElevator.SummonRequests.Contains(destinationFloor))
+                if (!bestElevator.SummonRequests.Contains(FromFloor))
                 {
-                    bestElevator.SummonRequests.Add(destinationFloor);
+                    bestElevator.SummonRequests.Add(FromFloor);
                     bestElevator.SummonRequests.Sort();
                 }
                 _logger.Information("System: Summon request for Staff Passenger {PassengerId} assigned to Service Elevator {ElevatorId}.", passenger.Id, bestElevator.Id);
             }
             else
             {
-                _logger.Warning("System: No available service elevator to handle summon request for Staff Passenger {PassengerId} at Floor {CurrentFloor}.", passenger.Id, currentFloor);
+                _logger.Warning("System: No available service elevator to handle summon request for Staff Passenger {PassengerId} at Floor {FromFloor}.", passenger.Id, FromFloor);
             }
 
-            if (destinationFloor > currentFloor)
+            if (ToFloor > FromFloor)
             {
-                Floors[currentFloor].UpCall = true;
+                Floors[FromFloor].UpCall = true;
             }
-            else if (destinationFloor < currentFloor)
+            else if (ToFloor < FromFloor)
             {
-                Floors[currentFloor].DownCall = true;
+                Floors[FromFloor].DownCall = true;
             }
+        }
+
+        // Processes & Execute all elevator commands in the queue.
+        public async Task ProcessElevatorCommands()
+        {
+            await ProcessElevatorCommandRequests();
+            await ExecuteElevatorCommands();
         }
 
         // Processes elevator commands based on the current state of each elevator and the building's floors.
         // This method iterates through each elevator, checks its state, and applies the necessary rules for movement, passenger entry/exit, and music playback.
         // It handles special cases such as fire alarms, mechanical issues, and time-based service operations.
         // The method also manages active summons and ensures that elevators respond appropriately to passenger requests.
-        public async Task ProcessElevatorCommands()
+        private async Task ExecuteElevatorCommands()
         {
             foreach (var elevator in Elevators)
             {
@@ -430,9 +489,9 @@ namespace Elevators.Core.Services
                 }
 
                 //Check if the elevator is currently at a floor with requests
-                IFloor currentFloor = Floors[elevator.CurrentFloor];
+                IFloor FromFloor = Floors[elevator.CurrentFloor];
 
-                bool needsToStop = elevator.ShouldStop(currentFloor);
+                bool needsToStop = elevator.ShouldStop(FromFloor);
 
                 if (needsToStop)
                     await ApplyStopMusicRule(elevator);
@@ -441,12 +500,12 @@ namespace Elevators.Core.Services
                 await ApplyExitPassengersRules(elevator);
 
                 // Apply enter passengers rules
-                await ApplyEnterPassengersRules(elevator, currentFloor);
+                await ApplyEnterPassengersRules(elevator, FromFloor);
 
 
                 if (elevator.Passengers.Count != 0 || elevator.SummonRequests.Count != 0)
                 {
-                    int nextInternalDestination = elevator.GetNextDestination(_elevatorSettings.MaxFloors);
+                    int nextInternalDestination = elevator.GetNextDestination();
 
                     // Directional time restriction logic
                     if (await _featureManager.IsEnabledAsync(FeatureNames.DirectionalTimeRestriction) && elevator.Type == ElevatorType.Service)
@@ -473,7 +532,7 @@ namespace Elevators.Core.Services
                         }
                         else
                         {
-                            _logger.Error("Elevator {ElevatorId} failed to move from {CurrentFloor} to {NextDestination}. Remaining at {CurrentFloor}.", elevator.Id, elevator.CurrentFloor, nextInternalDestination, elevator.CurrentFloor);
+                            _logger.Error("Elevator {ElevatorId} failed to move from {FromFloor} to {NextDestination}. Remaining at {FromFloor}.", elevator.Id, elevator.CurrentFloor, nextInternalDestination, elevator.CurrentFloor);
                             elevator.State = ElevatorState.Idle;
                             await ApplyStopMusicRule(elevator);
                         }
@@ -560,7 +619,7 @@ namespace Elevators.Core.Services
                 }
                 else
                 {
-                    _logger.Error("Elevator {ElevatorId} failed to move to call at {TargetFloor}. Remaining at {CurrentFloor}.", elevator.Id, targetFloor.FloorNumber, elevator.CurrentFloor);
+                    _logger.Error("Elevator {ElevatorId} failed to move to call at {TargetFloor}. Remaining at {FromFloor}.", elevator.Id, targetFloor.FloorNumber, elevator.CurrentFloor);
                     elevator.State = ElevatorState.Idle;
                     if (elevator.HasMusic && elevator.IsMusicPlaying)
                     {
@@ -606,7 +665,7 @@ namespace Elevators.Core.Services
 
                 if (nextInternalDestination > elevator.CurrentFloor)
                 {
-                    _logger.Information("Elevator {ElevatorId} ({ElevatorType}): Upward travel denied due to time restriction. Remaining at Floor {CurrentFloor}.", elevator.Id, elevator.Type, elevator.CurrentFloor);
+                    _logger.Information("Elevator {ElevatorId} ({ElevatorType}): Upward travel denied due to time restriction. Remaining at Floor {FromFloor}.", elevator.Id, elevator.Type, elevator.CurrentFloor);
                     nextInternalDestination = elevator.CurrentFloor; // Prevent upward movement
                 }
             }
@@ -618,13 +677,13 @@ namespace Elevators.Core.Services
         // This method checks if there are passengers waiting on the current floor who want to enter the elevator.
         // If there are passengers to enter, it opens the doors, announces the floor number if  the elevator has a speaker, and adds the passengers to the elevator.
         // After entering the passengers, it closes the doors.
-        private async Task ApplyEnterPassengersRules(IElevator elevator, IFloor currentFloor)
+        private async Task ApplyEnterPassengersRules(IElevator elevator, IFloor CurrentFloor)
         {
-            var passengersToEnter = currentFloor.Passengers
+            var passengersToEnter = CurrentFloor.Passengers
                 .Where(p =>
-                    (elevator.State == ElevatorState.Idle && (currentFloor.UpCall || currentFloor.DownCall)) ||
-                    (elevator.CurrentDirection == Direction.Up && p.DestinationFloor > elevator.CurrentFloor) ||
-                    (elevator.CurrentDirection == Direction.Down && p.DestinationFloor < currentFloor.FloorNumber)
+                    (elevator.State == ElevatorState.Idle && (CurrentFloor.UpCall || CurrentFloor.DownCall)) ||
+                    (elevator.CurrentDirection == Direction.Up && p.ToFloor > elevator.CurrentFloor) ||
+                    (elevator.CurrentDirection == Direction.Down && p.ToFloor < CurrentFloor.FloorNumber)
                 )
                 .ToList();
 
@@ -642,8 +701,8 @@ namespace Elevators.Core.Services
                         if (!elevator.IsFull())
                         {
                             elevator.AddPassenger(passenger);
-                            currentFloor.Passengers.Remove(passenger);
-
+                            CurrentFloor.Passengers.Remove(passenger);
+                            elevator.SummonRequests.Remove(passenger.FromFloor);
                             if (elevator.Type == ElevatorType.Private)
                             {
                                 await MockCameraSnapshot(elevator.Id, elevator.CurrentFloor);
@@ -651,16 +710,16 @@ namespace Elevators.Core.Services
                         }
                         else
                         {
-                            _logger.Information("Elevator {ElevatorId} ({ElevatorType}) is full, cannot pick up more passengers at Floor {CurrentFloor}.", elevator.Id, elevator.Type, elevator.CurrentFloor);
+                            _logger.Information("Elevator {ElevatorId} ({ElevatorType}) is full, cannot pick up more passengers at Floor {FromFloor}.", elevator.Id, elevator.Type, elevator.CurrentFloor);
                             break;
                         }
                     }
-                    currentFloor.ClearCalls();
+                    CurrentFloor.ClearCalls();
                     await _hardwareIntegrationService.CloseDoorsAsync(elevator.Id, elevator.CurrentFloor);
                 }
                 else
                 {
-                    _logger.Error("Elevator {ElevatorId} failed to open doors for pickup at Floor {CurrentFloor}!", elevator.Id, elevator.CurrentFloor);
+                    _logger.Error("Elevator {ElevatorId} failed to open doors for pickup at Floor {FromFloor}!", elevator.Id, elevator.CurrentFloor);
                 }
             }
         }
@@ -671,7 +730,7 @@ namespace Elevators.Core.Services
         // After exiting the passengers, it closes the doors.
         private async Task ApplyExitPassengersRules(IElevator elevator)
         {
-            var passengersToExit = elevator.Passengers.Where(p => p.DestinationFloor == elevator.CurrentFloor).ToList();
+            var passengersToExit = elevator.Passengers.Where(p => p.ToFloor == elevator.CurrentFloor).ToList();
             if (passengersToExit.Count != 0)
             {
                 bool opened = await _hardwareIntegrationService.OpenDoorsAsync(elevator.Id, elevator.CurrentFloor);
@@ -689,7 +748,7 @@ namespace Elevators.Core.Services
                 }
                 else
                 {
-                    _logger.Error("Elevator {ElevatorId} failed to open doors for exit at Floor {CurrentFloor}!", elevator.Id, elevator.CurrentFloor);
+                    _logger.Error("Elevator {ElevatorId} failed to open doors for exit at Floor {FromFloor}!", elevator.Id, elevator.CurrentFloor);
                 }
             }
         }

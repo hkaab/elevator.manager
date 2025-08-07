@@ -48,9 +48,9 @@ namespace Elevators.Core.Models
             {
                 Passengers.Add(passenger);
                 passenger.IsInsideElevator = true;
-                if (!SummonRequests.Contains(passenger.DestinationFloor))
+                if (!SummonRequests.Contains(passenger.FromFloor))
                 {
-                    SummonRequests.Add(passenger.DestinationFloor);
+                    SummonRequests.Add(passenger.FromFloor);
                     SummonRequests.Sort();
                 }
                 _logger.Information("Elevator {ElevatorId} ({ElevatorType}): Passenger {PassengerId} entered. Current passengers: {PassengerCount}/{Capacity}.", Id, Type, passenger.Id, Passengers.Count, Capacity);
@@ -67,41 +67,71 @@ namespace Elevators.Core.Models
             passenger.IsInsideElevator = false;
             _logger.Information("Elevator {ElevatorId} ({ElevatorType}): Passenger {PassengerId} exited. Current passengers: {PassengerCount}/{Capacity}.", Id, Type, passenger.Id, Passengers.Count, Capacity);
 
-            if (!Passengers.Any(p => p.DestinationFloor == passenger.DestinationFloor))
+            if (!Passengers.Any(p => p.ToFloor == passenger.ToFloor))
             {
-                SummonRequests.Remove(passenger.DestinationFloor);
+                SummonRequests.Remove(passenger.FromFloor);
             }
         }
 
-        public int GetNextDestination(int maxFloors)
+        public int GetNextDestination()
         {
             if (SummonRequests.Count != 0)
             {
                 if (CurrentDirection == Direction.Up)
                 {
                     var nextUp = SummonRequests.Where(f => f > CurrentFloor).OrderBy(f => f).FirstOrDefault();
-                    if (nextUp != 0) return nextUp;
+                    var nextStop = Passengers.Where(p => p.ToFloor > CurrentFloor).Select(p => p.ToFloor).OrderBy(f => f).FirstOrDefault();
+                    if ((nextUp >= 0 && nextUp < nextStop) || nextUp > CurrentFloor)
+                        return nextUp;
                     var nextDown = SummonRequests.Where(f => f < CurrentFloor).OrderByDescending(f => f).FirstOrDefault();
-                    if (nextDown != 0) return nextDown;
+                    if ((nextDown != 0 && nextStop < nextDown) || nextDown < CurrentFloor)
+                        return nextDown;
+                    if (nextStop >= 0)
+                        return nextStop;
                 }
                 else if (CurrentDirection == Direction.Down)
                 {
                     var nextDown = SummonRequests.Where(f => f < CurrentFloor).OrderByDescending(f => f).FirstOrDefault();
-                    if (nextDown != 0) return nextDown;
+                    var nextStop = Passengers.Where(p => p.ToFloor < CurrentFloor).Select(p => p.ToFloor).OrderByDescending(f => f).FirstOrDefault();
+                    if (nextDown >= 0 && nextDown > nextStop)
+                        return nextDown;
                     var nextUp = SummonRequests.Where(f => f > CurrentFloor).OrderBy(f => f).FirstOrDefault();
-                    if (nextUp != 0) return nextUp;
+                    if (nextUp >= 0 && nextStop > nextUp)
+                        return nextUp;
+                    if (nextStop >= 0)
+                        return nextStop;
                 }
-                return SummonRequests.OrderBy(f => Math.Abs(f - CurrentFloor)).First();
+                var nextSummonedStop =  SummonRequests.OrderBy(f => Math.Abs(f - CurrentFloor)).First();
+                var nextPassengerStop = Passengers.OrderBy(p => Math.Abs(p.ToFloor - CurrentFloor)).Select(p => p.ToFloor).FirstOrDefault();
+                if (nextSummonedStop >= 0 && nextPassengerStop >= 0)
+                {
+                    if (nextSummonedStop == CurrentFloor)
+                        return nextPassengerStop;
+                    else if (nextPassengerStop == CurrentFloor)
+                        return nextSummonedStop;
+                    if (Math.Abs(nextSummonedStop - CurrentFloor) < Math.Abs(nextPassengerStop - CurrentFloor))
+                        return nextSummonedStop;
+                    else
+                        return nextPassengerStop;
+                }
+                else if (nextSummonedStop >= 0)
+                {
+                    return nextSummonedStop;
+                }
+                else if (nextPassengerStop >= 0)
+                {
+                    return nextPassengerStop;
+                }
             }
             return CurrentFloor;
         }
 
-        public bool ShouldStop(IFloor currentFloor)
+        public bool ShouldStop(IFloor FromFloor)
         {
-            if (Passengers.Any(p => p.DestinationFloor == CurrentFloor) ||
-               (CurrentDirection == Direction.Up && currentFloor.UpCall) ||
-               (CurrentDirection == Direction.Down && currentFloor.DownCall) ||
-               (State == ElevatorState.Idle && (currentFloor.UpCall || currentFloor.DownCall)))
+            if (Passengers.Any(p => p.ToFloor == FromFloor.FloorNumber) ||
+               (CurrentDirection == Direction.Up && FromFloor.UpCall) ||
+               (CurrentDirection == Direction.Down && FromFloor.DownCall) ||
+               (State == ElevatorState.Idle && (FromFloor.UpCall || FromFloor.DownCall)))
             {
                 return true;
             }

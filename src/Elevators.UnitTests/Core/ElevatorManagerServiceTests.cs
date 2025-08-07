@@ -18,7 +18,6 @@ namespace Elevators.Tests.Core
         private readonly Mock<Serilog.ILogger> _loggerMock;
         private readonly ElevatorManagerService _service;
         private readonly IConfiguration _configuration;
-        private readonly IOptions<ElevatorSettings> _elevatorSettings;
         public ElevatorManagerServiceTests()
         {
             _featureManagerMock = new Mock<IFeatureManager>();
@@ -50,36 +49,111 @@ namespace Elevators.Tests.Core
         }
 
         [Fact]
-        public async Task AddGeneralPassengerRequest_AssignsRequestToClosestElevator()
+        public async Task PassengerSummonGeneralElevatorRequest_OnceInGoUpFromGroundToLevel5()
+        {
+            // Arrange
+            _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
+            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            publicElevator.CurrentFloor = 0;
+            publicElevator.State = ElevatorState.Idle;
+            ElevatorCommandRequest request = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 0,
+                ToFloor = 5
+            };
+
+            // Act
+            await _service.QueueElevatorCommandRequest(request);
+            await _service.ProcessElevatorCommands();
+
+            // Assert
+            Assert.Equal(Direction.Up, publicElevator.CurrentDirection);
+            Assert.Equal(5, publicElevator.CurrentFloor);
+            Assert.Equal(ElevatorState.MovingUp, publicElevator.State);
+        }
+
+        [Fact]
+        public async Task PassengerSummonGeneralElevatorRequest_ToGoDownFromLevel6and4BothGoToLevel1()
+        {
+            // Arrange
+            _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
+            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            publicElevator.CurrentFloor = 0;
+            publicElevator.State = ElevatorState.Idle;
+            ElevatorCommandRequest request1 = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 6,
+                ToFloor = 1
+            };
+
+            ElevatorCommandRequest request2 = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 4,
+                ToFloor = 1
+            };
+            // Act
+            await _service.QueueElevatorCommandRequest(request1);
+            await _service.QueueElevatorCommandRequest(request2);
+            // up
+            await _service.ProcessElevatorCommands();
+            // up again
+            await _service.ProcessElevatorCommands();
+            // down
+            await _service.ProcessElevatorCommands();
+
+            // Assert
+            Assert.Equal(Direction.Down, publicElevator.CurrentDirection);
+            Assert.Equal(1, publicElevator.CurrentFloor);
+            Assert.Equal(ElevatorState.MovingDown, publicElevator.State);
+        }
+        [Fact]
+        public async Task AddSummonGeneralElevatorRequest_AssignsRequestToClosestElevator()
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
             var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
             publicElevator.CurrentFloor = 5;
+            ElevatorCommandRequest request = new ElevatorCommandRequest
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 8,
+                ToFloor = 2
+            };
 
             // Act
-            await _service.AddGeneralPassengerRequest(8, 2);
+            await _service.QueueElevatorCommandRequest(request);
+            await _service.ProcessElevatorCommands();
 
             // Assert
-            Assert.Contains(2, publicElevator.SummonRequests);
+            Assert.Contains(8, publicElevator.SummonRequests);
             Assert.Single(_service.Floors[8].Passengers);
             Assert.True(_service.Floors[8].DownCall);
         }
 
         [Fact]
-        public async Task AddGeneralPassengerRequest_ElevatorAlreadyAtFloor_AddsToDestinationRequests()
+        public async Task AddSummonGeneralElevatorRequest_ElevatorAlreadyAtFloor_AddsToDestinationRequests()
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
             var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
             publicElevator.CurrentFloor = 3;
 
+            ElevatorCommandRequest request = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 3,
+                ToFloor = 7
+            };
+
             // Act
-            await _service.AddGeneralPassengerRequest(3, 7);
+            await _service.QueueElevatorCommandRequest(request);
+            await _service.ProcessElevatorCommands();
 
             // Assert
-            Assert.Contains(7, publicElevator.SummonRequests);
-            Assert.True(_service.Floors[3].UpCall);
+            Assert.Contains(3, publicElevator.SummonRequests);
         }
 
         [Fact]
@@ -111,8 +185,14 @@ namespace Elevators.Tests.Core
             var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
             publicElevator.CurrentFloor = 7;
 
+            ElevatorCommandRequest request = new ElevatorCommandRequest
+            {
+                ElevatorCommand = ElevatorCommand.FireAlarm,
+                FireAlarmActive = true,
+            };
+
             // Act
-            _service.SetFireAlarm(true);
+            await _service.QueueElevatorCommandRequest(request);
             await _service.ProcessElevatorCommands();
 
             // Assert
@@ -120,5 +200,6 @@ namespace Elevators.Tests.Core
             Assert.Equal(ElevatorState.EmergencyStop, publicElevator.State);
             Assert.Contains(1, publicElevator.SummonRequests);
         }
+
     }
 }

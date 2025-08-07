@@ -2,7 +2,7 @@
 {
     public class GeneralRequest
     {
-        public int CurrentFloor { get; set; }
-        public int DestinationFloor { get; set; }
+        public int FromFloor { get; set; }
+        public int ToFloor { get; set; }
     }
 }

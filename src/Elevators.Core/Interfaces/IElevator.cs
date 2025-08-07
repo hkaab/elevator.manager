@@ -12,6 +12,7 @@ namespace Elevators.Core.Interfaces
         List<Passenger> Passengers { get; }
         int Capacity { get; }
         bool HasMechanicalIssue { get; }
+
         List<int> SummonRequests { get; }
         ElevatorType Type { get; }
         bool HasMusic { get; }
@@ -22,7 +23,7 @@ namespace Elevators.Core.Interfaces
         void SetIssue(bool hasIssue);
         void AddPassenger(Passenger passenger);
         void RemovePassenger(Passenger passenger);
-        int GetNextDestination(int maxFloors);
-        bool ShouldStop(IFloor currentFloorRequests);
+        int GetNextDestination();
+        bool ShouldStop(IFloor FromFloorRequests);
     }
 }

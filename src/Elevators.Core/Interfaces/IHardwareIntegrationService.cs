@@ -6,7 +6,7 @@ namespace Elevators.Core.Interfaces
     {
         Task<bool> OpenDoorsAsync(int elevatorId, int floorNumber);
         Task<bool> CloseDoorsAsync(int elevatorId, int floorNumber);
-        Task<bool> MoveElevatorAsync(int elevatorId, int currentFloor, int targetFloor, Direction direction);
+        Task<bool> MoveElevatorAsync(int elevatorId, int FromFloor, int targetFloor, Direction direction);
         Task<bool> SetElevatorIssueAsync(int elevatorId, bool hasIssue);
         Task<bool> ActivateFireAlarmAsync();
         Task<bool> DeactivateFireAlarmAsync();

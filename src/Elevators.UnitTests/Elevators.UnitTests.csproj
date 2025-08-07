@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Api\" />
+    <Folder Include="Api\Controllers\" />
   </ItemGroup>
 
   <ItemGroup>
