@@ -32,13 +32,13 @@ namespace Elevators.api.Controllers
                 {
                     Elevators = _elevatorService.Elevators.Select(e => new
                     {
-                        e.Id,
-                        type= e.Type.ToString(),
-                        e.CurrentFloor,
-                        state = e.State.ToString(),
-                        direction= e.CurrentDirection.ToString(),
-                        Passengers = e.Passengers.Select(p => p.ToString()),
-                        e.SummonRequests
+                        e.Value.Id,
+                        type= e.Value.Type.ToString(),
+                        e.Value.CurrentFloor,
+                        state = e.Value.State.ToString(),
+                        direction= e.Value.CurrentDirection.ToString(),
+                        Passengers = e.Value.Passengers.Select(p => p.ToString()),
+                        e.Value.SummonRequests
                     }),
 
                     Floors = _elevatorService.Floors.Select(f => new
@@ -110,7 +110,7 @@ namespace Elevators.api.Controllers
                 {
                     return BadRequest("Current floor and destination floor cannot be the same.");
                 }
-                if (!_elevatorService.Elevators.Any(e => e.Id == elevatorId))
+                if (!_elevatorService.Elevators.ContainsKey(elevatorId))
                 {
                     return NotFound($"Elevator with ID {elevatorId} not found.");
                 }
@@ -210,15 +210,15 @@ namespace Elevators.api.Controllers
         {
             try
             {
-                if (!_elevatorService.Elevators.Any(e => e.Id == elevatorId))
+                if (!_elevatorService.Elevators.ContainsKey(elevatorId))
                 {
                     return NotFound($"Elevator with ID {elevatorId} not found.");
                 }
-                if (hasIssue && _elevatorService.Elevators.First(e => e.Id == elevatorId).HasMechanicalIssue)
+                if (hasIssue && _elevatorService.Elevators[elevatorId].HasMechanicalIssue)
                 {
                     return BadRequest("Elevator already has a mechanical issue.");
                 }   
-                if (!hasIssue && !_elevatorService.Elevators.First(e => e.Id == elevatorId).HasMechanicalIssue)
+                if (!hasIssue && !_elevatorService.Elevators[elevatorId].HasMechanicalIssue)
                 {
                     return BadRequest("Elevator does not have a mechanical issue to resolve.");
                 }
@@ -247,11 +247,11 @@ namespace Elevators.api.Controllers
         {
             try
             {
-                if (!_elevatorService.Elevators.Any(e => e.Id == elevatorId))
+                if (!_elevatorService.Elevators.ContainsKey(elevatorId))
                 {
                     return NotFound($"Elevator with ID {elevatorId} not found.");
                 }
-                if (_elevatorService.Elevators.First(e => e.Id == elevatorId).IsEmergencyCallActive)
+                if (_elevatorService.Elevators[elevatorId].IsEmergencyCallActive)
                 {
                     return BadRequest("Emergency call is already active for this elevator.");
                 }

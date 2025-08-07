@@ -6,7 +6,7 @@ namespace Elevators.Core.Interfaces
     public interface IElevatorManagerService
     {
         ConcurrentQueue<ElevatorCommandRequest> ElevatorCommandsQueue { get; }
-        List<IElevator> Elevators { get; }
+        Dictionary<int,IElevator> Elevators { get; }
         Dictionary<int,IFloor> Floors { get; }
         Task QueueElevatorCommandRequest(ElevatorCommandRequest elevatorCommandRequest);
         Task ProcessElevatorCommands();

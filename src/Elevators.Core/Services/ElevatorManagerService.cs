@@ -12,7 +12,7 @@ namespace Elevators.Core.Services
     public class ElevatorManagerService : IElevatorManagerService
     {
         public ConcurrentQueue<ElevatorCommandRequest> ElevatorCommandsQueue { get; private set; }
-        public List<IElevator> Elevators { get; private set; }
+        public Dictionary<int,IElevator> Elevators { get; private set; }
         public Dictionary<int,IFloor> Floors { get; private set; }
         public bool FireAlarmActive { get; private set; }
 
@@ -59,20 +59,20 @@ namespace Elevators.Core.Services
 
         {
             var elevatorSettings = configuration.GetSection("ElevatorSettings") as ElevatorSettings;
-            _elevatorSettings = elevatorSettings ??= new ElevatorSettings
-                {
-                    NumberOfPublicElevators = 1,
-                    NumberOfPrivateElevators = 0,
-                    NumberOfServiceElevators = 0,
-                    MaxFloors = 10,
-                    ElevatorCapacity = 5,
-                    PublicElevatorHasMusic = true,
-                    PublicElevatorHasSpeaker = true,
-                    PrivateElevatorHasMusic = true,
-                    PrivateElevatorHasSpeaker = true,
-                    ServiceElevatorHasMusic = false,
-                    ServiceElevatorHasSpeaker = false
-                };
+            _elevatorSettings = elevatorSettings ?? new ElevatorSettings
+            {
+                NumberOfPublicElevators = 4,
+                NumberOfPrivateElevators = 1,
+                NumberOfServiceElevators = 1,
+                MaxFloors = 10,
+                ElevatorCapacity = 5,
+                PublicElevatorHasMusic = true,
+                PublicElevatorHasSpeaker = true,
+                PrivateElevatorHasMusic = true,
+                PrivateElevatorHasSpeaker = true,
+                ServiceElevatorHasMusic = false,
+                ServiceElevatorHasSpeaker = false
+            };
         }
 
         // Initializes the floors based on the maximum number of floors specified in the elevator settings.
@@ -102,15 +102,15 @@ namespace Elevators.Core.Services
             int elevatorIdCounter = 1;
             for (int i = 0; i < _elevatorSettings.NumberOfPublicElevators; i++)
             {
-                Elevators.Add(new Elevator(elevatorIdCounter++, _elevatorSettings.ElevatorCapacity, ElevatorType.Public, _elevatorSettings.PublicElevatorHasMusic, _elevatorSettings.PublicElevatorHasSpeaker, _logger));
+                Elevators.Add(elevatorIdCounter, new Elevator(elevatorIdCounter++, _elevatorSettings.ElevatorCapacity, ElevatorType.Public, _elevatorSettings.PublicElevatorHasMusic, _elevatorSettings.PublicElevatorHasSpeaker, _logger));
             }
             for (int i = 0; i < _elevatorSettings.NumberOfPrivateElevators; i++)
             {
-                Elevators.Add(new Elevator(elevatorIdCounter++, _elevatorSettings.ElevatorCapacity, ElevatorType.Private, _elevatorSettings.PrivateElevatorHasMusic, _elevatorSettings.PrivateElevatorHasSpeaker, _logger));
+                Elevators.Add(elevatorIdCounter, new Elevator(elevatorIdCounter++, _elevatorSettings.ElevatorCapacity, ElevatorType.Private, _elevatorSettings.PrivateElevatorHasMusic, _elevatorSettings.PrivateElevatorHasSpeaker, _logger));
             }
             for (int i = 0; i < _elevatorSettings.NumberOfServiceElevators; i++)
             {
-                Elevators.Add(new Elevator(elevatorIdCounter++, _elevatorSettings.ElevatorCapacity, ElevatorType.Service, _elevatorSettings.ServiceElevatorHasMusic, _elevatorSettings.ServiceElevatorHasSpeaker, _logger));
+                Elevators.Add(elevatorIdCounter, new Elevator(elevatorIdCounter++, _elevatorSettings.ElevatorCapacity, ElevatorType.Service, _elevatorSettings.ServiceElevatorHasMusic, _elevatorSettings.ServiceElevatorHasSpeaker, _logger));
             }
         }
 
@@ -211,7 +211,7 @@ namespace Elevators.Core.Services
         // If valid, it creates a new passenger and adds it to the elevator's passenger list.
         private void AddCreateFloorRequest(int elevatorId, int floorNumber)
         {
-            var elevator = Elevators.FirstOrDefault(e => e.Id == elevatorId);
+            var elevator = Elevators[elevatorId];
             if (elevator == null)
             {
                 _logger.Error("Elevator with ID {ElevatorId} not found.", elevatorId);
@@ -245,10 +245,10 @@ namespace Elevators.Core.Services
                 _logger.Fatal("\n!!! FIRE ALARM ACTIVATED !!! All elevators going to Ground Floor.");
                 foreach (var elevator in Elevators)
                 {
-                    elevator.State = ElevatorState.EmergencyStop;
-                    elevator.CurrentDirection = Direction.Down;
-                    elevator.SummonRequests.Clear();
-                    elevator.SummonRequests.Add(0);
+                    elevator.Value.State = ElevatorState.EmergencyStop;
+                    elevator.Value.CurrentDirection = Direction.Down;
+                    elevator.Value.SummonRequests.Clear();
+                    elevator.Value.SummonRequests.Add(0);
                 }
             }
             else
@@ -257,10 +257,10 @@ namespace Elevators.Core.Services
                 _logger.Warning("\n!!! FIRE ALARM DEACTIVATED !!! Elevators resuming normal operation.");
                 foreach (var elevator in Elevators)
                 {
-                    if (elevator.State == ElevatorState.EmergencyStop)
+                    if (elevator.Value.State == ElevatorState.EmergencyStop)
                     {
-                        elevator.State = ElevatorState.Idle;
-                        elevator.CurrentDirection = Direction.None;
+                        elevator.Value.State = ElevatorState.Idle;
+                        elevator.Value.CurrentDirection = Direction.None;
                     }
                 }
             }
@@ -270,7 +270,7 @@ namespace Elevators.Core.Services
         // This method checks if the elevator exists and then sends a command to the hardware integration service
         private async Task EmergencyCallAsync(int elevatorId)
         {
-            var elevator = Elevators.FirstOrDefault(e => e.Id == elevatorId);
+            var elevator = Elevators[elevatorId];
             if (elevator != null)
             {
                 bool success = await _hardwareIntegrationService.ActivateEmergencyCallAsync(elevator.Id);
@@ -300,7 +300,7 @@ namespace Elevators.Core.Services
         // This method updates the elevator's state and sends a command to the hardware integration service.
         private void SetElevatorIssue(int elevatorId, bool hasIssue)
         {
-            var elevator = Elevators.FirstOrDefault(e => e.Id == elevatorId);
+            var elevator = Elevators[elevatorId];
             if (elevator != null)
             {
                 bool success = _hardwareIntegrationService.SetElevatorIssueAsync(elevator.Id, hasIssue).Result;
@@ -339,16 +339,16 @@ namespace Elevators.Core.Services
 
             if (await _featureManager.IsEnabledAsync(FeatureNames.PublicElevators))
             {
-                bestElevator = Elevators.Where(e => e.Type == ElevatorType.Public && e.State != ElevatorState.OutOfService && e.State != ElevatorState.EmergencyStop && !e.IsFull())
-                                        .OrderBy(e => Math.Abs(e.CurrentFloor - FromFloor))
-                                        .FirstOrDefault();
+                bestElevator = Elevators.Where(e => e.Value.Type == ElevatorType.Public && e.Value.State != ElevatorState.OutOfService && e.Value.State != ElevatorState.EmergencyStop && !e.Value.IsFull())
+                                        .OrderBy(e => Math.Abs(e.Value.CurrentFloor - FromFloor))
+                                        .FirstOrDefault().Value;
             }
 
             if (bestElevator == null && await _featureManager.IsEnabledAsync(FeatureNames.PrivateElevators))
             {
-                bestElevator = Elevators.Where(e => e.Type == ElevatorType.Private && e.State != ElevatorState.OutOfService && e.State != ElevatorState.EmergencyStop && !e.IsFull())
-                                        .OrderBy(e => Math.Abs(e.CurrentFloor - FromFloor))
-                                        .FirstOrDefault();
+                bestElevator = Elevators.Where(e => e.Value.Type == ElevatorType.Private && e.Value.State != ElevatorState.OutOfService && e.Value.State != ElevatorState.EmergencyStop && !e.Value.IsFull())
+                                        .OrderBy(e => Math.Abs(e.Value.CurrentFloor - FromFloor))
+                                        .FirstOrDefault().Value;
             }
 
             if (bestElevator != null)
@@ -390,7 +390,7 @@ namespace Elevators.Core.Services
                 return;
             }
 
-            var elevator = Elevators.FirstOrDefault(e => e.Id == elevatorId && e.Type == ElevatorType.Private);
+            var elevator = Elevators.FirstOrDefault(e => e.Value.Id == elevatorId && e.Value.Type == ElevatorType.Private).Value;
             if (elevator == null)
             {
                 _logger.Error("Elevator {ElevatorId} is not a private elevator or does not exist.", elevatorId);
@@ -477,9 +477,9 @@ namespace Elevators.Core.Services
             _logger.Information("System: New summon request at Floor {FromFloor} going to {ToFloor} from Staff Passenger {PassengerId}.", FromFloor, ToFloor, passenger.Id);
 
 
-            var bestElevator = Elevators.Where(e => e.Type == ElevatorType.Service && e.State != ElevatorState.OutOfService && e.State != ElevatorState.EmergencyStop && !e.IsFull())
-                                        .OrderBy(e => Math.Abs(e.CurrentFloor - FromFloor))
-                                        .FirstOrDefault();
+            var bestElevator = Elevators.Where(e => e.Value.Type == ElevatorType.Service && e.Value.State != ElevatorState.OutOfService && e.Value.State != ElevatorState.EmergencyStop && !e.Value.IsFull())
+                                        .OrderBy(e => Math.Abs(e.Value.CurrentFloor - FromFloor))
+                                        .FirstOrDefault().Value;
 
             if (bestElevator != null)
             {
@@ -518,8 +518,10 @@ namespace Elevators.Core.Services
         // The method also manages active summons and ensures that elevators respond appropriately to passenger requests.
         private async Task ExecuteElevatorCommands()
         {
-            foreach (var elevator in Elevators)
+            foreach (var e in Elevators)
             {
+                var  elevator  = e.Value;
+
                 // Skip elevators that are out of service or in emergency stop state
                 if (elevator.HasMechanicalIssue)
                 {

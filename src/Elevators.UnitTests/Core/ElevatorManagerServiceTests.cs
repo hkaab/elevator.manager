@@ -28,7 +28,6 @@ namespace Elevators.Tests.Core
             {"ElevatorOperatingRules:ServiceElevatorOperatingHours:End", "18:00"},
             {"ElevatorOperatingRules:UpDirectionOperatingHours:Start", "08:00"},
             {"ElevatorOperatingRules:UpDirectionOperatingHours:End", "12:00"},
-
         };
             _configuration = new ConfigurationBuilder()
                 .AddInMemoryCollection(inMemorySettings)
@@ -52,7 +51,7 @@ namespace Elevators.Tests.Core
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
-            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
             publicElevator.CurrentFloor = 0;
             publicElevator.State = ElevatorState.Idle;
             ElevatorCommandRequest request = new()
@@ -77,7 +76,7 @@ namespace Elevators.Tests.Core
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
-            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
             publicElevator.CurrentFloor = 0;
             publicElevator.State = ElevatorState.Idle;
             ElevatorCommandRequest request1 = new()
@@ -113,7 +112,7 @@ namespace Elevators.Tests.Core
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
-            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
             publicElevator.CurrentFloor = 0;
             publicElevator.State = ElevatorState.Idle;
 
@@ -150,7 +149,7 @@ namespace Elevators.Tests.Core
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
-            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
             publicElevator.CurrentFloor = 0;
             publicElevator.State = ElevatorState.Idle;
 
@@ -196,9 +195,9 @@ namespace Elevators.Tests.Core
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
-            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
             publicElevator.CurrentFloor = 5;
-            ElevatorCommandRequest request = new ElevatorCommandRequest
+            ElevatorCommandRequest request = new()
             {
                 ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
                 FromFloor = 8,
@@ -216,11 +215,11 @@ namespace Elevators.Tests.Core
         }
 
         [Fact]
-        public async Task AddSummonGeneralElevatorRequest_ElevatorAlreadyAtFloor_AddsToDestinationRequests()
+        public async Task AddSummonGeneralElevatorRequest_ElevatorAlreadyAtFloor_GoToDestinationRequests()
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
-            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
             publicElevator.CurrentFloor = 3;
 
             ElevatorCommandRequest request = new()
@@ -236,7 +235,7 @@ namespace Elevators.Tests.Core
 
             // Assert
             Assert.Equal(7, publicElevator.CurrentFloor);
-            Assert.True(publicElevator.Passengers.Count== 1);
+            Assert.Single(publicElevator.Passengers);
         }
 
         [Fact]
@@ -244,9 +243,9 @@ namespace Elevators.Tests.Core
         {
             // Arrange
             _featureManagerMock.Setup(f => f.IsEnabledAsync(FeatureNames.PublicElevators)).ReturnsAsync(true);
-            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            // Arrange an elevator that is moving and has passengers
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
             var passenger = new Passenger(1, 3, 5);
-            publicElevator.CurrentFloor = 3;
             publicElevator.State = ElevatorState.MovingUp;
             publicElevator.AddPassenger(passenger);
             publicElevator.SummonRequests.Add(5);
@@ -265,7 +264,7 @@ namespace Elevators.Tests.Core
         public async Task SetFireAlarm_ElevatorsEnterEmergencyStateAndGoToGroundFloor()
         {
             // Arrange
-            var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
             publicElevator.CurrentFloor = 7;
 
             ElevatorCommandRequest request = new()
