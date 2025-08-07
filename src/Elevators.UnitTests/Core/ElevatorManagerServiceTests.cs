@@ -4,7 +4,6 @@ using Elevators.Core.Models;
 using Elevators.Core.Models.Enums;
 using Elevators.Core.Services;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Options;
 using Microsoft.FeatureManagement;
 using Moq;
 using Xunit;
@@ -153,7 +152,8 @@ namespace Elevators.Tests.Core
             await _service.ProcessElevatorCommands();
 
             // Assert
-            Assert.Contains(3, publicElevator.SummonRequests);
+            Assert.Equal(7, publicElevator.CurrentFloor);
+            Assert.True(publicElevator.Passengers.Count== 1);
         }
 
         [Fact]
@@ -167,9 +167,9 @@ namespace Elevators.Tests.Core
             publicElevator.State = ElevatorState.MovingUp;
             publicElevator.AddPassenger(passenger);
             publicElevator.SummonRequests.Add(5);
+            publicElevator.CurrentFloor = 5;
 
             // Act
-            publicElevator.CurrentFloor = 5; 
             await _service.ProcessElevatorCommands();
 
             // Assert

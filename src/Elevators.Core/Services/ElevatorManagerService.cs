@@ -61,9 +61,9 @@ namespace Elevators.Core.Services
             var elevatorSettings = configuration.GetSection("ElevatorSettings") as ElevatorSettings;
             _elevatorSettings = elevatorSettings ??= new ElevatorSettings
                 {
-                    NumberOfPublicElevators = 2,
-                    NumberOfPrivateElevators = 1,
-                    NumberOfServiceElevators = 1,
+                    NumberOfPublicElevators = 1,
+                    NumberOfPrivateElevators = 0,
+                    NumberOfServiceElevators = 0,
                     MaxFloors = 10,
                     ElevatorCapacity = 5,
                     PublicElevatorHasMusic = true,
@@ -505,17 +505,17 @@ namespace Elevators.Core.Services
 
                 if (elevator.Passengers.Count != 0 || elevator.SummonRequests.Count != 0)
                 {
-                    int nextInternalDestination = elevator.GetNextDestination();
+                    int nextDestination = elevator.GetNextDestination();
 
                     // Directional time restriction logic
                     if (await _featureManager.IsEnabledAsync(FeatureNames.DirectionalTimeRestriction) && elevator.Type == ElevatorType.Service)
                     {
-                        nextInternalDestination = ApplyDirectionalTimeRestrictionRule(elevator, nextInternalDestination);
+                        nextDestination = ApplyDirectionalTimeRestrictionRule(elevator, nextDestination);
                     }
 
-                    if (nextInternalDestination != elevator.CurrentFloor)
+                    if (nextDestination != elevator.CurrentFloor)
                     {
-                        Direction moveDirection = (nextInternalDestination > elevator.CurrentFloor) ? Direction.Up : Direction.Down;
+                        Direction moveDirection = (nextDestination > elevator.CurrentFloor) ? Direction.Up : Direction.Down;
 
                         if (elevator.HasMusic && !elevator.IsMusicPlaying)
                         {
@@ -523,16 +523,16 @@ namespace Elevators.Core.Services
                             if (musicStarted) elevator.IsMusicPlaying = true;
                         }
 
-                        bool moved = await _hardwareIntegrationService.MoveElevatorAsync(elevator.Id, elevator.CurrentFloor, nextInternalDestination, moveDirection);
+                        bool moved = await _hardwareIntegrationService.MoveElevatorAsync(elevator.Id, elevator.CurrentFloor, nextDestination, moveDirection);
                         if (moved)
                         {
-                            elevator.CurrentFloor = nextInternalDestination;
+                            elevator.CurrentFloor = nextDestination;
                             elevator.CurrentDirection = moveDirection;
                             elevator.State = (moveDirection == Direction.Up) ? ElevatorState.MovingUp : ElevatorState.MovingDown;
                         }
                         else
                         {
-                            _logger.Error("Elevator {ElevatorId} failed to move from {FromFloor} to {NextDestination}. Remaining at {FromFloor}.", elevator.Id, elevator.CurrentFloor, nextInternalDestination, elevator.CurrentFloor);
+                            _logger.Error("Elevator {ElevatorId} failed to move from {FromFloor} to {NextDestination}. Remaining at {FromFloor}.", elevator.Id, elevator.CurrentFloor, nextDestination, elevator.CurrentFloor);
                             elevator.State = ElevatorState.Idle;
                             await ApplyStopMusicRule(elevator);
                         }
@@ -681,7 +681,7 @@ namespace Elevators.Core.Services
         {
             var passengersToEnter = CurrentFloor.Passengers
                 .Where(p =>
-                    (elevator.State == ElevatorState.Idle && (CurrentFloor.UpCall || CurrentFloor.DownCall)) ||
+                    (CurrentFloor.UpCall || CurrentFloor.DownCall) ||
                     (elevator.CurrentDirection == Direction.Up && p.ToFloor > elevator.CurrentFloor) ||
                     (elevator.CurrentDirection == Direction.Down && p.ToFloor < CurrentFloor.FloorNumber)
                 )

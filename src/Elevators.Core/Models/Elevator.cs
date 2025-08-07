@@ -75,12 +75,20 @@ namespace Elevators.Core.Models
 
         public int GetNextDestination()
         {
-            if (SummonRequests.Count != 0)
+            if (SummonRequests.Count != 0 || Passengers.Count != 0)
             {
                 if (CurrentDirection == Direction.Up)
                 {
                     var nextUp = SummonRequests.Where(f => f > CurrentFloor).OrderBy(f => f).FirstOrDefault();
                     var nextStop = Passengers.Where(p => p.ToFloor > CurrentFloor).Select(p => p.ToFloor).OrderBy(f => f).FirstOrDefault();
+
+                    // going down
+                    if (nextUp == 0 && nextStop == 0)
+                    {
+                        nextStop = Passengers.Where(p => p.ToFloor < CurrentFloor).Select(p => p.ToFloor).OrderBy(f => f).FirstOrDefault();
+                        return nextStop;
+                    }
+
                     if ((nextUp >= 0 && nextUp < nextStop) || nextUp > CurrentFloor)
                         return nextUp;
                     var nextDown = SummonRequests.Where(f => f < CurrentFloor).OrderByDescending(f => f).FirstOrDefault();
@@ -101,7 +109,9 @@ namespace Elevators.Core.Models
                     if (nextStop >= 0)
                         return nextStop;
                 }
-                var nextSummonedStop =  SummonRequests.OrderBy(f => Math.Abs(f - CurrentFloor)).First();
+                var nextSummonedStop = -1;
+                if (SummonRequests.Count > 0)
+                    nextSummonedStop = SummonRequests.OrderBy(f => Math.Abs(f - CurrentFloor)).First();
                 var nextPassengerStop = Passengers.OrderBy(p => Math.Abs(p.ToFloor - CurrentFloor)).Select(p => p.ToFloor).FirstOrDefault();
                 if (nextSummonedStop >= 0 && nextPassengerStop >= 0)
                 {
