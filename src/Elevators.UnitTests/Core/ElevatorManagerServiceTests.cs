@@ -262,7 +262,7 @@ namespace Elevators.Tests.Core
         }
 
         [Fact]
-        public async Task SetFireAlarm_ElevatorsEnterEmergencyStateAndGoToFloor1()
+        public async Task SetFireAlarm_ElevatorsEnterEmergencyStateAndGoToGroundFloor()
         {
             // Arrange
             var publicElevator = _service.Elevators.First(e => e.Type == ElevatorType.Public);
@@ -281,7 +281,7 @@ namespace Elevators.Tests.Core
             // Assert
             Assert.True(_service.FireAlarmActive);
             Assert.Equal(ElevatorState.EmergencyStop, publicElevator.State);
-            Assert.Contains(1, publicElevator.SummonRequests);
+            Assert.Contains(0, publicElevator.SummonRequests);
         }
 
     }

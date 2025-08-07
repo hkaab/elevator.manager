@@ -13,7 +13,7 @@ namespace Elevators.Core.Services
     {
         public ConcurrentQueue<ElevatorCommandRequest> ElevatorCommandsQueue { get; private set; }
         public List<IElevator> Elevators { get; private set; }
-        public List<IFloor> Floors { get; private set; }
+        public Dictionary<int,IFloor> Floors { get; private set; }
         public bool FireAlarmActive { get; private set; }
 
         private int _passengerIdCounter = 0;
@@ -87,7 +87,7 @@ namespace Elevators.Core.Services
 
             for (int i = 0; i <= _elevatorSettings.MaxFloors; i++)
             {
-                Floors.Add(new Floor(i, _logger));
+                Floors.Add(i,new Floor(i, _logger));
             }
         }
 
@@ -159,19 +159,42 @@ namespace Elevators.Core.Services
                         SetElevatorIssue(request.ElevatorId, request.HasIssue);
                         break;
                     case ElevatorCommand.SummonGeneralElevator:
-                        await AddGeneralElevatorRequest(request.FromFloor.Value, request.ToFloor.Value);
+                        if (request.FromFloor.HasValue && request.ToFloor.HasValue)
+                        {
+                            await AddGeneralElevatorRequest(request.FromFloor.Value, request.ToFloor.Value);
+                        }
+                        else
+                        {
+                            _logger.Error("Invalid request: FromFloor or ToFloor is null for General Elevator request.");
+                        }
                         break;
                     case ElevatorCommand.SummonPrivateElevator:
-                        await AddPrivateElevatorRequest(request.ElevatorId, request.FromFloor.Value, request.ToFloor.Value);
+                        if (request.FromFloor.HasValue && request.ToFloor.HasValue)
+                        {
+                            await AddPrivateElevatorRequest(request.ElevatorId, request.FromFloor.Value, request.ToFloor.Value);
+                        }
+                        else
+                        {
+                            _logger.Error("Invalid request: FromFloor or ToFloor is null for Private Elevator request.");
+                        }   
                         break;
                     case ElevatorCommand.SummonServiceElevator:
-                        await AddServiceElevatorRequest(request.FromFloor.Value, request.ToFloor.Value, request.HasSwappedCard);
+                        if (request.FromFloor.HasValue && request.ToFloor.HasValue)
+                        {
+                            await AddServiceElevatorRequest(request.FromFloor.Value, request.ToFloor.Value, request.HasSwappedCard);
+                        }
+                        else
+                        {
+                            _logger.Error("Invalid request: FromFloor or ToFloor is null for Service Elevator request.");
+                        }
                         break;
                     case ElevatorCommand.CancelFloorRequest:
-                         AddCancelFloorRequest(request.ElevatorId,request.ToFloor.Value);
+                        if (request.ToFloor.HasValue)
+                            AddCancelFloorRequest(request.ElevatorId,request.ToFloor.Value);
                         break;
                     case ElevatorCommand.CreateFloorRequest:
-                         AddCreateFloorRequest(request.ElevatorId, request.ToFloor.Value);
+                        if (request.ToFloor.HasValue)
+                            AddCreateFloorRequest(request.ElevatorId, request.ToFloor.Value);
                         break;
 
                     default:
@@ -194,7 +217,7 @@ namespace Elevators.Core.Services
                 _logger.Error("Elevator with ID {ElevatorId} not found.", elevatorId);
                 return;
             }
-            if (floorNumber < 0 || floorNumber > _elevatorSettings.MaxFloors)
+            if (floorNumber < 0 || floorNumber > _elevatorSettings?.MaxFloors)
             {
                 _logger.Error("Invalid floor number {FloorNumber} for elevator request.", floorNumber);
                 return;
@@ -219,13 +242,13 @@ namespace Elevators.Core.Services
             if (active)
             {
                 _hardwareIntegrationService.ActivateFireAlarmAsync().Wait();
-                _logger.Fatal("\n!!! FIRE ALARM ACTIVATED !!! All elevators going to Floor 1.");
+                _logger.Fatal("\n!!! FIRE ALARM ACTIVATED !!! All elevators going to Ground Floor.");
                 foreach (var elevator in Elevators)
                 {
                     elevator.State = ElevatorState.EmergencyStop;
                     elevator.CurrentDirection = Direction.Down;
                     elevator.SummonRequests.Clear();
-                    elevator.SummonRequests.Add(1);
+                    elevator.SummonRequests.Add(0);
                 }
             }
             else
@@ -301,7 +324,7 @@ namespace Elevators.Core.Services
         // If no elevator is available, it logs a warning.
         private async Task AddGeneralElevatorRequest(int FromFloor, int ToFloor)
         {
-            if (FromFloor < 0 || FromFloor > _elevatorSettings.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings.MaxFloors)
+            if (FromFloor < 0 || FromFloor > _elevatorSettings?.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings?.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
@@ -355,7 +378,7 @@ namespace Elevators.Core.Services
         // Adds a private elevator request for a specific private elevator.
         public async Task AddPrivateElevatorRequest(int elevatorId, int FromFloor, int ToFloor)
         {
-            if (FromFloor < 0 || FromFloor > _elevatorSettings.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings.MaxFloors)
+            if (FromFloor < 0 || FromFloor > _elevatorSettings?.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings?.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
@@ -406,7 +429,7 @@ namespace Elevators.Core.Services
         // Adds a service elevator request for staff members.
         private async Task AddServiceElevatorRequest(int FromFloor, int ToFloor, bool hasSwappedCard)
         {
-            if (FromFloor < 0 || FromFloor > _elevatorSettings.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings.MaxFloors)
+            if (FromFloor < 0 || FromFloor > _elevatorSettings?.MaxFloors || ToFloor < 0 || ToFloor > _elevatorSettings?.MaxFloors)
             {
                 _logger.Error("Invalid floor number for passenger request.");
                 return;
@@ -578,7 +601,7 @@ namespace Elevators.Core.Services
                     await ApplyStopMusicRule(elevator);
                 }
 
-                var activeSummons = Floors.Where(f => f.UpCall || f.DownCall).ToList();
+                var activeSummons = Floors.Where(f => f.Value.UpCall || f.Value.DownCall).ToDictionary();
                 if (activeSummons.Count != 0)
                 {
                     await ProcessActiveSummons(elevator, activeSummons);
@@ -596,40 +619,40 @@ namespace Elevators.Core.Services
         // If the elevator is moving up, it looks for the next floor with an up call.
         // If the elevator is moving down, it looks for the next floor with a down call.
         // If no active summons are found in the current direction, it checks the opposite direction.
-        private async Task ProcessActiveSummons(IElevator elevator, List<IFloor> activeSummons)
+        private async Task ProcessActiveSummons(IElevator elevator, Dictionary<int,IFloor> activeSummons)
         {
             IFloor? targetFloor = null;
 
             // Determine the next target floor based on the elevator's current direction and active summons
             if (elevator.CurrentDirection == Direction.Up)
             {
-                targetFloor = activeSummons.Where(f => f.FloorNumber > elevator.CurrentFloor && f.UpCall)
-                                        .OrderBy(f => f.FloorNumber)
-                                        .FirstOrDefault();
+                targetFloor = activeSummons.Where(f => f.Value.FloorNumber > elevator.CurrentFloor && f.Value.UpCall)
+                                        .OrderBy(f => f.Value.FloorNumber)
+                                        .FirstOrDefault().Value;
                 if (targetFloor == null)
                 {
-                    targetFloor = activeSummons.Where(f => f.FloorNumber < elevator.CurrentFloor && f.DownCall)
-                                            .OrderByDescending(f => f.FloorNumber)
-                                            .FirstOrDefault();
+                    targetFloor = activeSummons.Where(f => f.Value.FloorNumber < elevator.CurrentFloor && f.Value.DownCall)
+                                            .OrderByDescending(f => f.Value.FloorNumber)
+                                            .FirstOrDefault().Value;
                     if (targetFloor != null) elevator.CurrentDirection = Direction.Down;
                 }
             }
             else if (elevator.CurrentDirection == Direction.Down)
             {
-                targetFloor = activeSummons.Where(f => f.FloorNumber < elevator.CurrentFloor && f.DownCall)
-                                        .OrderByDescending(f => f.FloorNumber)
-                                        .FirstOrDefault();
+                targetFloor = activeSummons.Where(f => f.Value.FloorNumber < elevator.CurrentFloor && f.Value.DownCall)
+                                        .OrderByDescending(f => f.Value.FloorNumber)
+                                        .FirstOrDefault().Value;
                 if (targetFloor == null)
                 {
-                    targetFloor = activeSummons.Where(f => f.FloorNumber > elevator.CurrentFloor && f.UpCall)
-                                            .OrderBy(f => f.FloorNumber)
-                                            .FirstOrDefault();
+                    targetFloor = activeSummons.Where(f => f.Value.FloorNumber > elevator.CurrentFloor && f.Value.UpCall)
+                                            .OrderBy(f => f.Value.FloorNumber)
+                                            .FirstOrDefault().Value;
                     if (targetFloor != null) elevator.CurrentDirection = Direction.Up;
                 }
             }
             else
             {
-                targetFloor = activeSummons.OrderBy(f => Math.Abs(f.FloorNumber - elevator.CurrentFloor)).FirstOrDefault();
+                targetFloor = activeSummons.OrderBy(f => Math.Abs(f.Value.FloorNumber - elevator.CurrentFloor)).FirstOrDefault().Value;
                 if (targetFloor != null)
                 {
                     elevator.CurrentDirection = (targetFloor.FloorNumber > elevator.CurrentFloor) ? Direction.Up : Direction.Down;

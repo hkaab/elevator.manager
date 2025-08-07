@@ -43,10 +43,10 @@ namespace Elevators.api.Controllers
 
                     Floors = _elevatorService.Floors.Select(f => new
                     {
-                        f.FloorNumber,
-                        Passengers = f.Passengers.Select(p => p.ToString()),
-                        f.UpCall,
-                        f.DownCall
+                        f.Value.FloorNumber,
+                        Passengers = f.Value.Passengers.Select(p => p.ToString()),
+                        f.Value.UpCall,
+                        f.Value.DownCall
                     }),
                     _elevatorService.FireAlarmActive
                 };

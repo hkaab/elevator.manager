@@ -7,7 +7,7 @@ namespace Elevators.Core.Interfaces
     {
         ConcurrentQueue<ElevatorCommandRequest> ElevatorCommandsQueue { get; }
         List<IElevator> Elevators { get; }
-        List<IFloor> Floors { get; }
+        Dictionary<int,IFloor> Floors { get; }
         Task QueueElevatorCommandRequest(ElevatorCommandRequest elevatorCommandRequest);
         Task ProcessElevatorCommands();
         bool FireAlarmActive { get; }
