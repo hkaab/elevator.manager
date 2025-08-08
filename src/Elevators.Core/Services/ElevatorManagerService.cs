@@ -344,13 +344,6 @@ namespace Elevators.Core.Services
                                         .FirstOrDefault().Value;
             }
 
-            if (bestElevator == null && await _featureManager.IsEnabledAsync(FeatureNames.PrivateElevators))
-            {
-                bestElevator = Elevators.Where(e => e.Value.Type == ElevatorType.Private && e.Value.State != ElevatorState.OutOfService && e.Value.State != ElevatorState.EmergencyStop && !e.Value.IsFull())
-                                        .OrderBy(e => Math.Abs(e.Value.CurrentFloor - FromFloor))
-                                        .FirstOrDefault().Value;
-            }
-
             if (bestElevator != null)
             {
                 if (!bestElevator.SummonRequests.Contains(FromFloor))
@@ -520,7 +513,7 @@ namespace Elevators.Core.Services
         {
             foreach (var e in Elevators)
             {
-                var  elevator  = e.Value;
+                var elevator = e.Value;
 
                 // Skip elevators that are out of service or in emergency stop state
                 if (elevator.HasMechanicalIssue)
@@ -550,12 +543,14 @@ namespace Elevators.Core.Services
                 //Check if the elevator is currently at a floor with requests
                 IFloor currentFloor = Floors[elevator.CurrentFloor];
 
+                // Check if the elevator should stop at the current floor , the elevator is in idle
                 bool needsToStop = elevator.ShouldStop(currentFloor);
 
                 if (needsToStop)
+
                     await ApplyStopMusicRule(elevator);
 
-                // Apply exit and passenger rules
+                // Apply exit passenger rules
                 await ApplyExitPassengersRules(elevator);
 
                 // Apply enter passengers rules
@@ -621,7 +616,7 @@ namespace Elevators.Core.Services
         // If the elevator is moving up, it looks for the next floor with an up call.
         // If the elevator is moving down, it looks for the next floor with a down call.
         // If no active summons are found in the current direction, it checks the opposite direction.
-        private async Task ProcessActiveSummons(IElevator elevator, Dictionary<int,IFloor> activeSummons)
+        private async Task ProcessActiveSummons(IElevator elevator, Dictionary<int, IFloor> activeSummons)
         {
             IFloor? targetFloor = null;
 

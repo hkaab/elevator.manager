@@ -9,16 +9,10 @@ namespace Elevators.api.Controllers
 {
     [ApiController]
     [Route(Endpoints.Elevator)]
-    public class ElevatorController : ControllerBase
+    public class ElevatorController(IElevatorManagerService elevatorService, ILogger<ElevatorController> logger) : ControllerBase
     {
-        private readonly IElevatorManagerService _elevatorService;
-        private readonly ILogger<ElevatorController> _logger;
-
-        public ElevatorController(IElevatorManagerService elevatorService, ILogger<ElevatorController> logger)
-        {
-            _elevatorService = elevatorService;
-            _logger = logger;
-        }
+        private readonly IElevatorManagerService _elevatorService = elevatorService;
+        private readonly ILogger<ElevatorController> _logger = logger;
 
         [HttpGet("status")]
         [ProducesResponseType(StatusCodes.Status200OK)]
@@ -210,15 +204,15 @@ namespace Elevators.api.Controllers
         {
             try
             {
-                if (!_elevatorService.Elevators.ContainsKey(elevatorId))
+                if (!_elevatorService.Elevators.TryGetValue(elevatorId, out IElevator? value))
                 {
                     return NotFound($"Elevator with ID {elevatorId} not found.");
                 }
-                if (hasIssue && _elevatorService.Elevators[elevatorId].HasMechanicalIssue)
+                if (hasIssue && value.HasMechanicalIssue)
                 {
                     return BadRequest("Elevator already has a mechanical issue.");
                 }   
-                if (!hasIssue && !_elevatorService.Elevators[elevatorId].HasMechanicalIssue)
+                if (!hasIssue && !value.HasMechanicalIssue)
                 {
                     return BadRequest("Elevator does not have a mechanical issue to resolve.");
                 }
@@ -247,11 +241,11 @@ namespace Elevators.api.Controllers
         {
             try
             {
-                if (!_elevatorService.Elevators.ContainsKey(elevatorId))
+                if (!_elevatorService.Elevators.TryGetValue(elevatorId, out IElevator? value))
                 {
                     return NotFound($"Elevator with ID {elevatorId} not found.");
                 }
-                if (_elevatorService.Elevators[elevatorId].IsEmergencyCallActive)
+                if (value.IsEmergencyCallActive)
                 {
                     return BadRequest("Emergency call is already active for this elevator.");
                 }
