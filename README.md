@@ -318,6 +318,8 @@ Swagger JSON: `http://localhost:<port>/swagger/v1/swagger.json`
 
 Replace `<port>` with the port number your application is running on (e.g., 5001 or 7280).
 
-
+### Flow Charts
+![](https://github.com/hkaab/elevator.manager/blob/main/ExecuteElevatorCommands.drawio.svg)
+----
 📄 License
 This project is licensed under the Apache-2.0 License - see the LICENSE file for details.
