@@ -150,13 +150,13 @@ namespace Elevators.Core.Services
                 switch (request.ElevatorCommand)
                 {
                     case ElevatorCommand.FireAlarm:
-                        SetFireAlarm(request.FireAlarmActive);
+                        await SetFireAlarm(request.FireAlarmActive);
                         break;
                     case ElevatorCommand.EmergencyCall:
-                        EmergencyCallAsync(request.ElevatorId).Wait();
+                        await EmergencyCallAsync(request.ElevatorId);
                         break;
                     case ElevatorCommand.SetIssue:
-                        SetElevatorIssue(request.ElevatorId, request.HasIssue);
+                        await SetElevatorIssue(request.ElevatorId, request.HasIssue);
                         break;
                     case ElevatorCommand.SummonGeneralElevator:
                         if (request.FromFloor.HasValue && request.ToFloor.HasValue)
@@ -236,12 +236,12 @@ namespace Elevators.Core.Services
         // Sets the fire alarm state and handles the elevator behavior during a fire alarm.
         // If the fire alarm is activated, all elevators will go to the ground floor (Floor 1).
         // If deactivated, elevators will resume normal operation.
-        private void SetFireAlarm(bool active)
+        private async Task SetFireAlarm(bool active)
         {
             FireAlarmActive = active;
             if (active)
             {
-                _hardwareIntegrationService.ActivateFireAlarmAsync().Wait();
+                await _hardwareIntegrationService.ActivateFireAlarmAsync();
                 _logger.Fatal("\n!!! FIRE ALARM ACTIVATED !!! All elevators going to Ground Floor.");
                 foreach (var elevator in Elevators)
                 {
@@ -253,7 +253,7 @@ namespace Elevators.Core.Services
             }
             else
             {
-                _hardwareIntegrationService.DeactivateFireAlarmAsync().Wait();
+                await _hardwareIntegrationService.DeactivateFireAlarmAsync();
                 _logger.Warning("\n!!! FIRE ALARM DEACTIVATED !!! Elevators resuming normal operation.");
                 foreach (var elevator in Elevators)
                 {
@@ -298,12 +298,12 @@ namespace Elevators.Core.Services
 
         // Sets an issue for a specific elevator.
         // This method updates the elevator's state and sends a command to the hardware integration service.
-        private void SetElevatorIssue(int elevatorId, bool hasIssue)
+        private async Task SetElevatorIssue(int elevatorId, bool hasIssue)
         {
             var elevator = Elevators[elevatorId];
             if (elevator != null)
             {
-                bool success = _hardwareIntegrationService.SetElevatorIssueAsync(elevator.Id, hasIssue).Result;
+                bool success = await _hardwareIntegrationService.SetElevatorIssueAsync(elevator.Id, hasIssue);
                 if (success)
                 {
                     elevator.SetIssue(hasIssue);
