@@ -258,6 +258,7 @@ namespace Elevators.Tests.Core
             Assert.Empty(publicElevator.Passengers);
             _hardwareServiceMock.Verify(h => h.OpenDoorsAsync(publicElevator.Id, 5), Times.Once);
             _hardwareServiceMock.Verify(h => h.CloseDoorsAsync(publicElevator.Id, 5), Times.Once);
+            _loggerMock.Verify(l => l.Information("Elevator {ElevatorId} ({ElevatorType}): Passenger {PassengerId} exited. Current passengers: {PassengerCount}/{Capacity}.", publicElevator.Id, publicElevator.Type,passenger.Id, 0, publicElevator.Capacity), Times.Once);
         }
 
         [Fact]

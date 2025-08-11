@@ -339,6 +339,7 @@ namespace Elevators.Core.Services
 
             if (await _featureManager.IsEnabledAsync(FeatureNames.PublicElevators))
             {
+                // Find the best public elevator based on proximity and availability.
                 bestElevator = Elevators.Where(e => e.Value.Type == ElevatorType.Public && e.Value.State != ElevatorState.OutOfService && e.Value.State != ElevatorState.EmergencyStop && !e.Value.IsFull())
                                         .OrderBy(e => Math.Abs(e.Value.CurrentFloor - FromFloor))
                                         .FirstOrDefault().Value;
@@ -358,6 +359,8 @@ namespace Elevators.Core.Services
                 _logger.Warning("System: No available elevator to handle summon request for Passenger {PassengerId} at Floor {FromFloor}.", passenger.Id, FromFloor);
             }
 
+
+            // Check if the request is for an upward or downward call and set the floor call accordingly.
             if (ToFloor > FromFloor)
             {
                 Floors[FromFloor].UpCall = true;
@@ -408,6 +411,7 @@ namespace Elevators.Core.Services
                 elevator.SummonRequests.Sort();
             }
 
+            // Check if the request is for an upward or downward call and set the floor call accordingly.
             if (ToFloor > FromFloor)
             {
                 Floors[FromFloor].UpCall = true;
@@ -488,6 +492,7 @@ namespace Elevators.Core.Services
                 _logger.Warning("System: No available service elevator to handle summon request for Staff Passenger {PassengerId} at Floor {FromFloor}.", passenger.Id, FromFloor);
             }
 
+            // Check if the request is for an upward or downward call and set the floor call accordingly.
             if (ToFloor > FromFloor)
             {
                 Floors[FromFloor].UpCall = true;
@@ -547,7 +552,6 @@ namespace Elevators.Core.Services
                 bool needsToStop = elevator.ShouldStop(currentFloor);
 
                 if (needsToStop)
-
                     await ApplyStopMusicRule(elevator);
 
                 // Apply exit passenger rules
@@ -577,6 +581,7 @@ namespace Elevators.Core.Services
                             if (musicStarted) elevator.IsMusicPlaying = true;
                         }
 
+                        // Move the elevator to the next destination
                         bool moved = await _hardwareIntegrationService.MoveElevatorAsync(elevator.Id, elevator.CurrentFloor, nextDestination, moveDirection);
                         if (moved)
                         {
@@ -598,6 +603,7 @@ namespace Elevators.Core.Services
                     await ApplyStopMusicRule(elevator);
                 }
 
+                // If the elevator is idle, check for active summons on the floors
                 var activeSummons = Floors.Where(f => f.Value.UpCall || f.Value.DownCall).ToDictionary();
                 if (activeSummons.Count != 0)
                 {
@@ -741,8 +747,11 @@ namespace Elevators.Core.Services
                 )
                 .ToList();
 
+            // If there are passengers waiting to enter and the elevator is not full, open the doors and let them in.
+
             if (passengersToEnter.Count != 0 && !elevator.IsFull())
             {
+                
                 bool opened = await _hardwareIntegrationService.OpenDoorsAsync(elevator.Id, elevator.CurrentFloor);
                 if (opened)
                 {
@@ -750,11 +759,15 @@ namespace Elevators.Core.Services
                     {
                         await _hardwareIntegrationService.SpeakFloorNumberAsync(elevator.Id, elevator.CurrentFloor);
                     }
+                    _logger.Information("Elevator {ElevatorId} ({ElevatorType}) doors opened at Floor {FromFloor} for pickup.", elevator.Id, elevator.Type, elevator.CurrentFloor);
                     foreach (var passenger in passengersToEnter.ToList())
                     {
                         if (!elevator.IsFull())
                         {
+                            // Add the passenger to the elevator.
                             elevator.AddPassenger(passenger);
+
+                            // Remove the passenger from the current floor and the elevator's summon requests.
                             CurrentFloor.Passengers.Remove(passenger);
                             elevator.SummonRequests.Remove(passenger.FromFloor);
                             if (elevator.Type == ElevatorType.Private)

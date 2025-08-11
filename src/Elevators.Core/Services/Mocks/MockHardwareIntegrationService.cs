@@ -4,6 +4,7 @@ using Serilog;
 
 namespace Elevators.Core.Services.Mocks
 {
+           
     public class MockHardwareIntegrationService : IHardwareIntegrationService
     {
         private readonly Random _random = new();
