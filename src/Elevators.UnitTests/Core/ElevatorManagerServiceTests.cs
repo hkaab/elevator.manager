@@ -284,5 +284,31 @@ namespace Elevators.Tests.Core
             Assert.Contains(0, publicElevator.SummonRequests);
         }
 
+        [Fact]
+        public async Task WhenHasMechanicalIssue_VerifyElevatorIsOutOfServiceAndShouldNotHaveSummonRequests()
+        {
+            // Arrange
+            var publicElevator = _service.Elevators.First(e => e.Value.Type == ElevatorType.Public).Value;
+            publicElevator.CurrentFloor = 7;
+            publicElevator.State = ElevatorState.Idle;
+            publicElevator.SetIssue(true);
+
+            ElevatorCommandRequest request = new()
+            {
+                ElevatorCommand = ElevatorCommand.SummonGeneralElevator,
+                FromFloor = 2,
+                ToFloor = 6
+            };
+
+            // Act
+            await _service.QueueElevatorCommandRequest(request);
+            await _service.ProcessElevatorCommands();
+
+            // Assert
+            Assert.Equal(ElevatorState.OutOfService, publicElevator.State);
+            Assert.Empty(publicElevator.SummonRequests);
+            _loggerMock.Verify(l => l.Debug("Elevator {ElevatorId} ({ElevatorType}) is out of service due to an issue.", publicElevator.Id, publicElevator.Type), Times.Once);
+        }
+
     }
 }
