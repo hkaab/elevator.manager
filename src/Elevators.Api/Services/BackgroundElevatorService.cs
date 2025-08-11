@@ -11,12 +11,11 @@ namespace Elevators.Api.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _logger.LogInformation("Background Elevators Service is starting.");
-
+            using var scope = _serviceScopeFactory.CreateScope();
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    using var scope = _serviceScopeFactory.CreateScope();
                     var elevatorManagerService = scope.ServiceProvider.GetRequiredService<IElevatorManagerService>();
                     await ((ElevatorManagerService)elevatorManagerService).ProcessElevatorCommands();
                 }
