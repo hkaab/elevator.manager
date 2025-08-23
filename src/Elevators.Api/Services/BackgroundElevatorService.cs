@@ -12,11 +12,11 @@ namespace Elevators.Api.Services
         {
             _logger.LogInformation("Background Elevators Service is starting.");
             using var scope = _serviceScopeFactory.CreateScope();
+            var elevatorManagerService = scope.ServiceProvider.GetRequiredService<IElevatorManagerService>();
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
-                    var elevatorManagerService = scope.ServiceProvider.GetRequiredService<IElevatorManagerService>();
                     await ((ElevatorManagerService)elevatorManagerService).ProcessElevatorCommands();
                 }
                 catch (Exception ex)
